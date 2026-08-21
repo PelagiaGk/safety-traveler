@@ -17,8 +17,8 @@ async function initApp() {
         maxBoundsViscosity: 1.0
     });
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        attribution: '© OpenStreetMap contributors',
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles © Esri',
         noWrap: true,
         bounds: bounds
     }).addTo(map);
@@ -188,31 +188,42 @@ async function triggerAreaPrediction(lat, lon, knownPlaceName = null) {
         const res = await fetch(url);
         const data = await res.json();
         const bounds = map.getBounds();
-        let activeAlerts = 0;
         
+        let visibleAlerts = [];
         if (geojsonLayer) {
             geojsonLayer.eachLayer(layer => {
-                if (bounds.contains(layer.getLatLng())) activeAlerts++;
+                if (bounds.contains(layer.getLatLng())) {
+                    visibleAlerts.push(layer.feature.properties);
+                }
             });
         }
 
         if (data.predictions) {
-            updateSidebar(placeName, data.predictions, season || data.season, activeAlerts);
+            updateSidebar(placeName, data.predictions, season || data.season, visibleAlerts);
         } else if (data.error) {
-            updateSidebarNoData(placeName, season || document.getElementById('season-filter').value || "Current", activeAlerts);
+            updateSidebarNoData(placeName, season || document.getElementById('season-filter').value || "Current", visibleAlerts);
         }
     } catch (err) { console.error("Prediction fetch failed", err); }
 }
 
-function updateSidebar(locationTitle, predictions, season, activeAlertsCount) {
+function updateSidebar(locationTitle, predictions, season, visibleAlerts) {
     const panel = document.getElementById('info-panel');
-    let highestRisk = predictions[0].risk_rating.toLowerCase();
-    let cardStyle = activeAlertsCount > 0 ? "high" : (highestRisk === "high" ? "medium" : "low");
+    let highestRisk = predictions.length > 0 ? predictions[0].risk_rating.toLowerCase() : 'low';
+    let cardStyle = visibleAlerts.length > 0 ? "high" : (highestRisk === "high" ? "medium" : "low");
     let listHtml = predictions.map(p => `<li>${p.disaster_type}: <strong>${p.probability_percentage}</strong></li>`).join('');
 
-    let alertStatus = activeAlertsCount > 0 
-        ? `<p style="color: #ff0019;"><strong>⚠️ ${activeAlertsCount} active alert(s) in view.</strong></p>`
-        : `<p style="color: #00ff3c;"><strong>✅ No active alerts reported.</strong></p>`;
+    let alertStatus = "";
+    if (visibleAlerts.length > 0) {
+        let alertsList = visibleAlerts.map(a => `<li><strong>${a.emoji} ${a.disaster_type}</strong> (${a.locality})</li>`).join('');
+        alertStatus = `
+            <div style="margin-top: 10px; color: #dc3545;">
+                <p style="margin-bottom: 5px;"><strong>⚠️ ${visibleAlerts.length} active alert(s) in view:</strong></p>
+                <ul style="padding-left: 18px; margin-top: 0;">${alertsList}</ul>
+                <p style="font-size: 12px; color: #64748b; margin-top: 8px;"><em>Click map emojis for full emergency precautions.</em></p>
+            </div>`;
+    } else {
+        alertStatus = `<p style="color: #28a745;"><strong>✅ No active alerts reported.</strong></p>`;
+    }
 
     panel.innerHTML = `
         <div class="info-card ${cardStyle}">
@@ -226,14 +237,24 @@ function updateSidebar(locationTitle, predictions, season, activeAlertsCount) {
     `;
 }
 
-function updateSidebarNoData(locationTitle, season, activeAlertsCount) {
+function updateSidebarNoData(locationTitle, season, visibleAlerts) {
     const panel = document.getElementById('info-panel');
-    let alertStatus = activeAlertsCount > 0 
-        ? `<p style="color: #ff0019;"><strong>⚠️ ${activeAlertsCount} active alert(s) in view.</strong></p>`
-        : `<p style="color: #00fc3b;"><strong>✅ No active alerts reported.</strong></p>`;
+    
+    let alertStatus = "";
+    if (visibleAlerts.length > 0) {
+        let alertsList = visibleAlerts.map(a => `<li><strong>${a.emoji} ${a.disaster_type}</strong> (${a.locality})</li>`).join('');
+        alertStatus = `
+            <div style="margin-top: 10px; color: #dc3545;">
+                <p style="margin-bottom: 5px;"><strong>⚠️ ${visibleAlerts.length} active alert(s) in view:</strong></p>
+                <ul style="padding-left: 18px; margin-top: 0;">${alertsList}</ul>
+                <p style="font-size: 12px; color: #64748b; margin-top: 8px;"><em>Click map emojis for full emergency precautions.</em></p>
+            </div>`;
+    } else {
+        alertStatus = `<p style="color: #28a745;"><strong>✅ No active alerts reported.</strong></p>`;
+    }
 
     panel.innerHTML = `
-        <div class="info-card ${activeAlertsCount > 0 ? 'high' : 'low'}">
+        <div class="info-card ${visibleAlerts.length > 0 ? 'high' : 'low'}">
             <h3>📍 ${locationTitle}</h3>
             <p><strong>Season:</strong> ${season}</p>
             ${alertStatus}
