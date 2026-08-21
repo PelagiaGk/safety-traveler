@@ -82,10 +82,30 @@ def get_disasters(
     return {"type": "FeatureCollection", "features": filtered}
 
 @app.get("/api/v1/predict")
-def predict_risk(region: str, season: Optional[str] = None, predictor: DisasterPredictor = Depends(get_predictor)):
+def predict_risk(
+    region: Optional[str] = None,
+    season: Optional[str] = None,
+    lat: Optional[float] = None,
+    lon: Optional[float] = None,
+    predictor: DisasterPredictor = Depends(get_predictor)
+):
     active_season = season if season else get_current_season()
-    res = predictor.predict(region=region, season=active_season)
-    if "error" in res: raise HTTPException(status_code=404, detail=res["error"])
+    target_region = region if region else "East Macedonia and Thrace"
+    
+    res = predictor.predict(
+        region=target_region,
+        season=active_season,
+        lat=lat,
+        lon=lon
+    )
+    
+    if "error" in res:
+        res = predictor.predict(
+            region="East Macedonia and Thrace",
+            season=active_season,
+            lat=lat,
+            lon=lon
+        )
     return res
 
 @app.get("/api/v1/default-view", tags=["Default View"])
