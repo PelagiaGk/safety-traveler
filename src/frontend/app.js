@@ -173,8 +173,6 @@ function renderMarkers() {
         }
     }).addTo(map);
 }
-    }).addTo(map);
-}
 
 async function searchLocation(query) {
     try {
