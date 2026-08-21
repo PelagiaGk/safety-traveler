@@ -153,8 +153,11 @@ function renderMarkers() {
         },
         onEachFeature: function (feature, layer) {
             layer.on('click', () => {
+                isMarkerClick = true; 
+                
                 const latlng = layer.getLatLng();
-                map.flyTo(latlng, 9, { animate: true, duration: 0.5 });
+                map.panTo(latlng); 
+                
                 displayDetails(feature.properties, latlng.lat, latlng.lng);
             });
         }
