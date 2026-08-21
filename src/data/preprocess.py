@@ -4,8 +4,11 @@ from pathlib import Path
 from typing import Dict, Any, List
 import pandas as pd
 from src.data.schemas import DISASTER_EMOJIS, DisasterType, RiskLevel
+import sys
 
 BASE_DIR = Path(__file__).resolve().parents[2]
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
 RAW_DATA_PATH = BASE_DIR / "data" / "raw" / "disasters_raw.json"
 PROCESSED_DATA_PATH = BASE_DIR / "data" / "processed" / "regional_disaster_index.geojson"
 SUMMARY_STATS_PATH = BASE_DIR / "data" / "processed" / "risk_summary.json"

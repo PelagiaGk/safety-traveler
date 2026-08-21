@@ -1,13 +1,17 @@
 """GDACS API Ingestion Module."""
-import json
+import sys
 from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parents[2]
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
+
+import json
 from datetime import datetime
 import requests
 from src.data.schemas import DisasterType, SeasonEnum
 
-BASE_DIR = Path(__file__).resolve().parents[2]
 RAW_DATA_PATH = BASE_DIR / "data" / "raw" / "disasters_raw.json"
-
 GDACS_SEARCH_URL = "https://www.gdacs.org/gdacsapi/api/Events/geteventlist/SEARCH"
 
 GDACS_TYPE_MAPPING = {
@@ -16,7 +20,7 @@ GDACS_TYPE_MAPPING = {
     "TC": DisasterType.STORM.value,
     "WF": DisasterType.WILDFIRE.value,
     "DR": DisasterType.DROUGHT.value,
-    "VO": DisasterType.EARTHQUAKE.value,  
+    "VO": DisasterType.EARTHQUAKE.value,
 }
 
 
@@ -54,7 +58,7 @@ def fetch_gdacs_events() -> list:
             normalized_events.append({
                 "incident_id": f"GDACS-{props.get('eventid')}",
                 "country": props.get("country", "Unknown"),
-                "region": props.get("country", "Unknown"),  # Fallback to country name if region is unmapped
+                "region": props.get("country", "Unknown"),
                 "sub_region": props.get("name", "Unknown"),
                 "locality": props.get("name", "Unknown"),
                 "latitude": geom[1] if len(geom) > 1 else 0.0,
