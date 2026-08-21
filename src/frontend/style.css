@@ -1,0 +1,113 @@
+body { 
+    margin: 0; 
+    padding: 0; 
+    display: flex; 
+    height: 100vh; 
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+    color: #333;
+}
+
+#sidebar { 
+    width: 350px; 
+    background: #f8f9fa; 
+    padding: 20px; 
+    box-shadow: 2px 0 10px rgba(0,0,0,0.1); 
+    z-index: 1000; 
+    overflow-y: auto; 
+    display: flex;
+    flex-direction: column;
+}
+
+h2 {
+    margin-top: 0;
+    font-size: 22px;
+    color: #2c3e50;
+    border-bottom: 2px solid #e9ecef;
+    padding-bottom: 10px;
+}
+
+#map { 
+    flex-grow: 1; 
+    height: 100%; 
+}
+
+.filters select, .filters button { 
+    width: 100%; 
+    margin-bottom: 12px; 
+    padding: 10px; 
+    border-radius: 6px; 
+    border: 1px solid #ced4da; 
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.filters button { 
+    background: #007bff; 
+    color: white; 
+    border: none; 
+    cursor: pointer; 
+    font-weight: bold; 
+    transition: background 0.3s ease;
+}
+
+.filters button:hover { 
+    background: #0056b3; 
+}
+
+.emoji-marker { 
+    font-size: 26px; 
+    text-align: center; 
+    line-height: 26px; 
+    filter: drop-shadow(0px 3px 3px rgba(0,0,0,0.4)); 
+    transition: transform 0.2s ease;
+}
+
+.emoji-marker:hover {
+    transform: scale(1.2);
+    cursor: pointer;
+}
+
+.high-risk { 
+    font-size: 34px; 
+    animation: pulse 1.5s infinite; 
+}
+
+@keyframes pulse { 
+    0% { transform: scale(1); } 
+    50% { transform: scale(1.15); } 
+    100% { transform: scale(1); } 
+}
+
+.info-card { 
+    background: white; 
+    padding: 18px; 
+    border-radius: 8px; 
+    border-left: 5px solid #dc3545; 
+    margin-top: 20px; 
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05); 
+}
+
+.info-card h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 18px;
+}
+
+.info-card h4 {
+    margin-bottom: 5px;
+    color: #495057;
+}
+
+.info-card ul {
+    padding-left: 20px;
+    margin-top: 5px;
+    font-size: 14px;
+}
+
+.info-card.low { 
+    border-left-color: #28a745; 
+}
+
+.info-card.medium { 
+    border-left-color: #ffc107; 
+}

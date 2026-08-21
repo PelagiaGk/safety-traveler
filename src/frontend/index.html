@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Safety Traveler Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+    <div id="sidebar">
+        <h2>🌍 Safety Traveler</h2>
+        <div class="filters">
+            <select id="season-filter">
+                <option value="">Current Season</option>
+                <option value="Spring">Spring</option>
+                <option value="Summer">Summer</option>
+                <option value="Autumn">Autumn</option>
+                <option value="Winter">Winter</option>
+            </select>
+            <select id="country-filter">
+                <option value="">All Countries</option>
+            </select>
+            <select id="region-filter">
+                <option value="">All Regions</option>
+            </select>
+            <button onclick="loadMapData()">Search Map</button>
+        </div>
+        
+        <div id="info-panel">
+            <p>Initializing location and map data...</p>
+        </div>
+    </div>
+    
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="/static/app.js"></script>
+</body>
+</html>
