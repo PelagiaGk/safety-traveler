@@ -217,12 +217,12 @@ async function initApp() {
         noWrap: true, 
         bounds: bounds
     }).addTo(map);
-    
+
+    await fetchAllDisasters();
+
     setTimeout(() => {
         map.invalidateSize();
     }, 500);
-
-    await fetchAllDisasters();
 
     if ("geolocation" in navigator) {
         navigator.geolocation.getCurrentPosition(
