@@ -96,53 +96,23 @@ function renderMarkers() {
         return (f.properties.season || '').toLowerCase() === selectedSeason.toLowerCase();
     });
 
-    const groupedAlerts = new Map();
-    
+    const uniqueAlerts = new Map();
     filteredFeatures.forEach(feature => {
-        const locality = feature.properties.locality || feature.properties.region || "Unknown";
-        if (!groupedAlerts.has(locality)) {
-            groupedAlerts.set(locality, []);
-        }
-        
-        const existing = groupedAlerts.get(locality);
-        const isDuplicate = existing.some(e => e.properties.disaster_type === feature.properties.disaster_type);
-        
-        if (!isDuplicate) {
-            existing.push(feature);
+        const coords = feature.geometry ? feature.geometry.coordinates.join(',') : `${feature.properties.longitude},${feature.properties.latitude}`;
+        const type = feature.properties.disaster_type;
+        const key = `${coords}-${type}`;
+
+        if (!uniqueAlerts.has(key)) {
+            uniqueAlerts.set(key, feature);
         }
     });
 
-    const finalFeatures = [];
-    
-    groupedAlerts.forEach((alerts, locality) => {
-        const radius = 0.08; 
-        
-        alerts.forEach((feature, index) => {
-            const offsetFeature = JSON.parse(JSON.stringify(feature));
-            
-            if (offsetFeature.geometry && offsetFeature.geometry.coordinates) {
-                const baseLon = offsetFeature.geometry.coordinates[0];
-                const baseLat = offsetFeature.geometry.coordinates[1];
-                
-                if (alerts.length > 1) {
-                    const angle = (index / alerts.length) * Math.PI * 2;
-                    const lonOffset = Math.sin(angle) * radius;
-                    const latOffset = Math.cos(angle) * radius;
-                    
-                    offsetFeature.geometry.coordinates[0] = baseLon + lonOffset;
-                    offsetFeature.geometry.coordinates[1] = baseLat + latOffset;
-                }
-            }
-            
-            finalFeatures.push(offsetFeature);
-        });
-    });
+    const finalFeatures = Array.from(uniqueAlerts.values());
 
     geojsonLayer = L.geoJSON({ type: "FeatureCollection", features: finalFeatures }, {
         pointToLayer: function (feature, latlng) {
             const risk = (feature.properties.risk_level || 'Low').toLowerCase();
             const emoji = feature.properties.emoji || '⚠️';
-            
             const icon = L.divIcon({
                 html: `<div class="emoji-marker risk-${risk}">${emoji}</div>`,
                 className: '',
@@ -155,10 +125,10 @@ function renderMarkers() {
             layer.on('click', () => {
                 isMarkerClick = true; 
                 
-                const latlng = layer.getLatLng();
-                map.panTo(latlng); 
+                const lat = feature.geometry ? feature.geometry.coordinates[1] : feature.properties.latitude;
+                const lon = feature.geometry ? feature.geometry.coordinates[0] : feature.properties.longitude;
                 
-                displayDetails(feature.properties, latlng.lat, latlng.lng);
+                displayDetails(feature.properties, lat, lon);
             });
         }
     }).addTo(map);
@@ -184,7 +154,7 @@ async function triggerAreaPrediction(lat, lon, knownPlaceName = null) {
 
     if (!placeName) {
         try {
-            const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=14`);
+            const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=12`);
             const geoData = await geoRes.json();
             
             if (geoData.error) {
@@ -283,10 +253,32 @@ function updateSidebarNoData(locationTitle, season, visibleAlerts) {
 
 async function displayDetails(props, lat, lon) {
     const panel = document.getElementById('info-panel');
-    panel.innerHTML = '<p>Loading incident details and historical forecasts...</p>';
-
+    const placeName = props.locality || props.region || "Selected Area";
     const season = document.getElementById('season-filter').value || props.season || "Current";
-    let placeName = props.locality || props.region || "Selected Area";
+
+    panel.innerHTML = `
+        <div class="info-card ${(props.risk_level || 'medium').toLowerCase()}">
+            <h3>📍 ${placeName}</h3>
+            <p><strong>Season:</strong> ${season}</p>
+            
+            <div style="margin-top: 15px; background: #fff5f5; padding: 12px; border-radius: 6px; border: 1px solid #ffc9c9;">
+                <p style="margin: 0 0 8px 0; color: #ff0019; font-size: 15px;">
+                    <strong>⚠️ Active Alert: ${props.emoji} ${props.disaster_type}</strong>
+                </p>
+                <p style="margin: 0 0 8px 0; font-size: 13px;"><strong>Reason:</strong> ${props.primary_reason}</p>
+                <p style="margin: 0 0 4px 0; font-size: 12px; font-weight: bold; text-transform: uppercase;">Precautions:</p>
+                <ul style="padding-left: 18px; margin: 0; font-size: 13px;">
+                    ${(props.dynamic_precautions || []).map(t => `<li>${t}</li>`).join('')}
+                </ul>
+            </div>
+            
+            <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
+            
+            <div id="historical-data-container">
+                <p style="font-size: 13px; color: #64748b;"><em>Loading historical ML forecast...</em></p>
+            </div>
+        </div>
+    `;
 
     let url = `/api/v1/predict?lat=${lat}&lon=${lon}&region=${encodeURIComponent(placeName)}`;
     if (season && season !== "Current") url += `&season=${season}`;
@@ -294,39 +286,17 @@ async function displayDetails(props, lat, lon) {
     try {
         const res = await fetch(url);
         const data = await res.json();
+        const histContainer = document.getElementById('historical-data-container');
         
-        let listHtml = "";
         if (data.predictions) {
-            listHtml = data.predictions.map(p => `<li>${p.disaster_type}: <strong>${p.probability_percentage}</strong></li>`).join('');
+            const listHtml = data.predictions.map(p => `<li>${p.disaster_type}: <strong>${p.probability_percentage}</strong></li>`).join('');
+            histContainer.innerHTML = `<h4>Historical Forecast:</h4><ul>${listHtml}</ul>`;
         } else {
-            listHtml = `<p style="color: #64748b; font-size: 13px;"><em>No historical ML training data available for this specific region.</em></p>`;
+            histContainer.innerHTML = `<p style="color: #64748b; font-size: 13px;"><em>No historical ML training data available for this specific region.</em></p>`;
         }
-
-        panel.innerHTML = `
-            <div class="info-card ${(props.risk_level || 'medium').toLowerCase()}">
-                <h3>📍 ${placeName}</h3>
-                <p><strong>Season:</strong> ${season}</p>
-                
-                <div style="margin-top: 15px; background: #fff5f5; padding: 12px; border-radius: 6px; border: 1px solid #ffc9c9;">
-                    <p style="margin: 0 0 8px 0; color: #dc3545; font-size: 15px;">
-                        <strong>⚠️ Active Alert: ${props.emoji} ${props.disaster_type}</strong>
-                    </p>
-                    <p style="margin: 0 0 8px 0; font-size: 13px;"><strong>Reason:</strong> ${props.primary_reason}</p>
-                    <p style="margin: 0 0 4px 0; font-size: 12px; font-weight: bold; text-transform: uppercase;">Precautions:</p>
-                    <ul style="padding-left: 18px; margin: 0; font-size: 13px;">
-                        ${(props.dynamic_precautions || []).map(t => `<li>${t}</li>`).join('')}
-                    </ul>
-                </div>
-                
-                <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
-                
-                <h4>Historical Forecast:</h4>
-                <ul>${listHtml}</ul>
-            </div>
-        `;
     } catch (err) {
-        console.error("Failed to load details", err);
-        panel.innerHTML = `<p>Error loading incident data.</p>`;
+        console.error("Failed to load ML details", err);
+        document.getElementById('historical-data-container').innerHTML = `<p style="color: #ff0019; font-size: 13px;">Failed to load historical data.</p>`;
     }
 }
 
