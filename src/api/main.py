@@ -24,7 +24,7 @@ app.add_middleware(
 
 def get_current_season() -> str:
     """Determines meteorological season from current UTC month."""
-    month = datetime.utcnow().month
+    month = datetime.now(timezone.utc).month
     if month in [3, 4, 5]:
         return SeasonEnum.SPRING.value
     if month in [6, 7, 8]:

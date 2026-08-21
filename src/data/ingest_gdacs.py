@@ -2,7 +2,7 @@
 import sys
 from pathlib import Path
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 import requests
 from src.data.schemas import DisasterType, SeasonEnum
 import time 
@@ -50,7 +50,7 @@ def fetch_gdacs_events(retries: int = 3, delay: int = 2) -> list:
                 geom = feature.get("geometry", {}).get("coordinates", [0.0, 0.0])
 
                 event_date = datetime.fromisoformat(
-                    props.get("fromdate", datetime.utcnow().isoformat())[:19]
+                    props.get("fromdate", datetime.now(timezone.utc).isoformat())[:19]
                 )
                 raw_type = props.get("eventtype", "Unknown")
                 disaster_type = GDACS_TYPE_MAPPING.get(raw_type, DisasterType.STORM.value)
