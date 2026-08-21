@@ -129,22 +129,22 @@ function renderMarkers() {
     
     groupedAlerts.forEach((alerts, locality) => {
         const radius = 0.08; 
-
+        
         alerts.forEach((feature, index) => {
             const offsetFeature = JSON.parse(JSON.stringify(feature));
-            const baseLat = feature.geometry ? feature.geometry.coordinates[1] : feature.properties.latitude;
-            const baseLon = feature.geometry ? feature.geometry.coordinates[0] : feature.properties.longitude;
             
-            if (alerts.length > 1) {
-                const angle = (index / alerts.length) * Math.PI * 2;
-                const latOffset = Math.cos(angle) * radius;
-                const lonOffset = Math.sin(angle) * radius;
+            if (offsetFeature.geometry && offsetFeature.geometry.coordinates) {
+                const baseLon = offsetFeature.geometry.coordinates[0];
+                const baseLat = offsetFeature.geometry.coordinates[1];
                 
-                offsetFeature.properties.displayLat = baseLat + latOffset;
-                offsetFeature.properties.displayLon = baseLon + lonOffset;
-            } else {
-                offsetFeature.properties.displayLat = baseLat;
-                offsetFeature.properties.displayLon = baseLon;
+                if (alerts.length > 1) {
+                    const angle = (index / alerts.length) * Math.PI * 2;
+                    const lonOffset = Math.sin(angle) * radius;
+                    const latOffset = Math.cos(angle) * radius;
+                    
+                    offsetFeature.geometry.coordinates[0] = baseLon + lonOffset;
+                    offsetFeature.geometry.coordinates[1] = baseLat + latOffset;
+                }
             }
             
             finalFeatures.push(offsetFeature);
@@ -153,30 +153,9 @@ function renderMarkers() {
 
     geojsonLayer = L.geoJSON({ type: "FeatureCollection", features: finalFeatures }, {
         pointToLayer: function (feature, latlng) {
-            const displayLatLng = [feature.properties.displayLat, feature.properties.displayLon];
             const risk = (feature.properties.risk_level || 'Low').toLowerCase();
             const emoji = feature.properties.emoji || '⚠️';
             
-            const icon = L.divIcon({
-                html: `<div class="emoji-marker risk-${risk}">${emoji}</div>`,
-                className: '',
-                iconSize: [28, 28],
-                iconAnchor: [14, 14]
-            });
-            return L.marker(displayLatLng, { icon: icon });
-        },
-        onEachFeature: function (feature, layer) {
-            layer.on('click', () => displayDetails(feature.properties));
-        }
-    }).addTo(map);
-}
-
-    const deduplicatedFeatures = Array.from(uniqueAlerts.values());
-
-    geojsonLayer = L.geoJSON({ type: "FeatureCollection", features: deduplicatedFeatures }, {
-        pointToLayer: function (feature, latlng) {
-            const risk = (feature.properties.risk_level || 'Low').toLowerCase();
-            const emoji = feature.properties.emoji || '⚠️';
             const icon = L.divIcon({
                 html: `<div class="emoji-marker risk-${risk}">${emoji}</div>`,
                 className: '',
