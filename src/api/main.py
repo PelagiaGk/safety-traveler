@@ -125,19 +125,18 @@ def get_default_view(
     lon: Optional[float] = Query(None, description="User longitude"),
     data: Dict[str, Any] = Depends(get_disaster_data)
 ):
-    """Generates the localized map center and active alerts based on user location."""
+    """Generates a localized map centered on the user's country with active seasonal alerts."""
     current_season = get_current_season()
     features = data.get("features", [])
     
-    center_lat, center_lon = 40.8539, 25.8741
+    center_lat, center_lon = 39.0, 22.0
     matched_country = "Greece"
-    matched_region = "East Macedonia and Thrace"
+    zoom_level = 6  
     
     if lat is not None and lon is not None:
         nearest = get_nearest_region(lat, lon, features)
         if nearest:
             matched_country = nearest.get("country", matched_country)
-            matched_region = nearest.get("region", matched_region)
             center_lat, center_lon = lat, lon
 
     active_features = [
@@ -148,9 +147,8 @@ def get_default_view(
     
     return {
         "current_season": current_season,
-        "default_center": {"lat": center_lat, "lon": center_lon, "zoom": 8},
+        "default_center": {"lat": center_lat, "lon": center_lon, "zoom": zoom_level},
         "matched_country": matched_country,
-        "matched_region": matched_region,
         "active_seasonal_features": {
             "type": "FeatureCollection",
             "features": active_features
