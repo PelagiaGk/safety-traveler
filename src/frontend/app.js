@@ -2,6 +2,7 @@ let map;
 let geojsonLayer;
 let allDisasterData = [];
 let debounceTimer;
+let isMarkerClick = false;
 
 async function initApp() {
     
@@ -38,6 +39,11 @@ async function initApp() {
     }
 
     map.on('moveend', () => {
+        if (isMarkerClick) {
+            isMarkerClick = false; 
+            return; 
+        }
+        
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(async () => {
             const zoom = map.getZoom();
