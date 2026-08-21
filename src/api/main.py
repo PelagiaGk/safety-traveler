@@ -90,23 +90,14 @@ def predict_risk(
     predictor: DisasterPredictor = Depends(get_predictor)
 ):
     active_season = season if season else get_current_season()
-    target_region = region if region else "East Macedonia and Thrace"
+    target_region = region if region else "Unknown"
     
-    res = predictor.predict(
+    return predictor.predict(
         region=target_region,
         season=active_season,
         lat=lat,
         lon=lon
     )
-    
-    if "error" in res:
-        res = predictor.predict(
-            region="East Macedonia and Thrace",
-            season=active_season,
-            lat=lat,
-            lon=lon
-        )
-    return res
 
 @app.get("/api/v1/default-view", tags=["Default View"])
 def get_default_view(

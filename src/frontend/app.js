@@ -157,7 +157,7 @@ async function triggerAreaPrediction(lat, lon, knownPlaceName = null) {
         } catch (e) { placeName = "Selected Area"; }
     }
 
-    let url = `/api/v1/predict?lat=${lat}&lon=${lon}`;
+    let url = `/api/v1/predict?lat=${lat}&lon=${lon}&region=${encodeURIComponent(placeName)}`;
     if (season) url += `&season=${season}`;
     
     try {
@@ -171,7 +171,12 @@ async function triggerAreaPrediction(lat, lon, knownPlaceName = null) {
                 if (bounds.contains(layer.getLatLng())) activeAlerts++;
             });
         }
-        if (data.predictions) updateSidebar(placeName, data.predictions, season || data.season, activeAlerts);
+
+        if (data.predictions) {
+            updateSidebar(placeName, data.predictions, season || data.season, activeAlerts);
+        } else if (data.error) {
+            updateSidebarNoData(placeName, season || document.getElementById('season-filter').value || "Current", activeAlerts);
+        }
     } catch (err) { console.error("Prediction fetch failed", err); }
 }
 
@@ -182,8 +187,8 @@ function updateSidebar(locationTitle, predictions, season, activeAlertsCount) {
     let listHtml = predictions.map(p => `<li>${p.disaster_type}: <strong>${p.probability_percentage}</strong></li>`).join('');
 
     let alertStatus = activeAlertsCount > 0 
-        ? `<p style="color: #dc3545;"><strong>⚠️ ${activeAlertsCount} active alert(s) in view.</strong></p>`
-        : `<p style="color: #28a745;"><strong>✅ No active alerts reported.</strong></p>`;
+        ? `<p style="color: #ff0019;"><strong>⚠️ ${activeAlertsCount} active alert(s) in view.</strong></p>`
+        : `<p style="color: #00ff3c;"><strong>✅ No active alerts reported.</strong></p>`;
 
     panel.innerHTML = `
         <div class="info-card ${cardStyle}">
@@ -193,6 +198,24 @@ function updateSidebar(locationTitle, predictions, season, activeAlertsCount) {
             <hr style="border: 0; border-top: 1px solid #eee; margin: 12px 0;">
             <h4>Historical Forecast:</h4>
             <ul>${listHtml}</ul>
+        </div>
+    `;
+}
+
+function updateSidebarNoData(locationTitle, season, activeAlertsCount) {
+    const panel = document.getElementById('info-panel');
+    let alertStatus = activeAlertsCount > 0 
+        ? `<p style="color: #ff0019;"><strong>⚠️ ${activeAlertsCount} active alert(s) in view.</strong></p>`
+        : `<p style="color: #00fc3b;"><strong>✅ No active alerts reported.</strong></p>`;
+
+    panel.innerHTML = `
+        <div class="info-card ${activeAlertsCount > 0 ? 'high' : 'low'}">
+            <h3>📍 ${locationTitle}</h3>
+            <p><strong>Season:</strong> ${season}</p>
+            ${alertStatus}
+            <hr style="border: 0; border-top: 1px solid #eee; margin: 12px 0;">
+            <h4>Historical Forecast:</h4>
+            <p style="color: #64748b; font-size: 13px;"><em>No historical ML training data available for this specific region.</em></p>
         </div>
     `;
 }
