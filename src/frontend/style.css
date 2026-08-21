@@ -123,3 +123,15 @@ h2 {
     font-size: 13px;
     line-height: 1.5;
 }
+
+.translator-widget {
+    margin-bottom: 15px;
+    min-height: 35px;
+}
+
+body > .skiptranslate {
+    display: none !important;
+}
+body {
+    top: 0px !important; 
+}

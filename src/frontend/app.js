@@ -197,4 +197,71 @@ function displayDetails(props) {
     panel.innerHTML = html;
 }
 
-initApp();
+async function initApp() {
+    const defaultCenter = [39.0, 22.0];
+    
+    const southWest = L.latLng(-90, -180);
+    const northEast = L.latLng(90, 180);
+    const bounds = L.latLngBounds(southWest, northEast);
+
+    map = L.map('map', {
+        center: defaultCenter,
+        zoom: 5,
+        minZoom: 3, 
+        maxBounds: bounds, 
+        maxBoundsViscosity: 1.0 
+    });
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution: '© OpenStreetMap contributors, © CARTO',
+        noWrap: true, 
+        bounds: bounds
+    }).addTo(map);
+
+    await fetchAllDisasters();
+
+    if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                map.setView([pos.coords.latitude, pos.coords.longitude], 8);
+                triggerAreaPrediction(pos.coords.latitude, pos.coords.longitude);
+            },
+            () => { triggerAreaPrediction(defaultCenter[0], defaultCenter[1]); }
+        );
+    }
+
+    map.on('moveend', () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(async () => {
+            const zoom = map.getZoom();
+            const panel = document.getElementById('info-panel');
+            
+            if (zoom < 6) { 
+                panel.innerHTML = `
+                    <div class="info-card low">
+                        <h3>🌍 Global View</h3>
+                        <p>You are zoomed out. Zoom in to a specific country or region to see local safety conditions and active alerts.</p>
+                    </div>`;
+                return;
+            }
+
+            const center = map.getCenter();
+            await triggerAreaPrediction(center.lat, center.lng);
+        }, 800);
+    });
+
+    const searchInput = document.getElementById('search-input');
+    searchInput.addEventListener('keydown', async (e) => {
+        if (e.key === 'Enter' && searchInput.value.trim()) {
+            await searchLocation(searchInput.value.trim());
+        }
+    });
+
+    document.getElementById('season-filter').addEventListener('change', () => {
+        renderMarkers();
+        if (map.getZoom() >= 6) {
+            const center = map.getCenter();
+            triggerAreaPrediction(center.lat, center.lng);
+        }
+    });
+}
