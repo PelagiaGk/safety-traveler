@@ -211,7 +211,9 @@ async function initApp() {
         maxBounds: bounds, 
         maxBoundsViscosity: 1.0 
     });
-
+    
+    setTimeout(() => map.invalidateSize(), 400);
+    
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
         attribution: '© OpenStreetMap contributors, © CARTO',
         noWrap: true, 
