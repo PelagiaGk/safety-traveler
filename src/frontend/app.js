@@ -109,7 +109,31 @@ function renderMarkers() {
         return (f.properties.season || '').toLowerCase() === selectedSeason.toLowerCase();
     });
 
-    geojsonLayer = L.geoJSON({ type: "FeatureCollection", features: filteredFeatures }, {
+    const uniqueAlerts = new Map();
+    
+    filteredFeatures.forEach(feature => {
+        const locality = feature.properties.locality || feature.properties.region || "Unknown";
+        const type = feature.properties.disaster_type;
+        const key = `${locality}-${type}`;
+        
+        const riskWeight = { "low": 1, "medium": 2, "high": 3 };
+        const currentWeight = riskWeight[(feature.properties.risk_level || 'low').toLowerCase()] || 0;
+        
+        if (!uniqueAlerts.has(key)) {
+            uniqueAlerts.set(key, feature);
+        } else {
+            const existingFeature = uniqueAlerts.get(key);
+            const existingWeight = riskWeight[(existingFeature.properties.risk_level || 'low').toLowerCase()] || 0;
+            
+            if (currentWeight > existingWeight) {
+                uniqueAlerts.set(key, feature);
+            }
+        }
+    });
+
+    const deduplicatedFeatures = Array.from(uniqueAlerts.values());
+
+    geojsonLayer = L.geoJSON({ type: "FeatureCollection", features: deduplicatedFeatures }, {
         pointToLayer: function (feature, latlng) {
             const risk = (feature.properties.risk_level || 'Low').toLowerCase();
             const emoji = feature.properties.emoji || '⚠️';
