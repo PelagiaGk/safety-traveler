@@ -1,67 +1,64 @@
 body { 
     margin: 0; 
     padding: 0; 
-    display: flex; 
-    height: 100vh; 
-    width: 100vw;
-    overflow: hidden;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
     color: #2c3e50;
+    overflow: hidden; 
 }
 
 #sidebar { 
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
     width: 360px; 
-    flex-shrink: 0; 
     background: #ffffff; 
     padding: 20px; 
-    box-shadow: 2px 0 12px rgba(0, 0, 0, 0.08); 
+    box-shadow: 2px 0 12px rgba(0, 0, 0, 0.15); 
     z-index: 1000; 
     overflow-y: auto; 
-    display: flex;
-    flex-direction: column;
+    box-sizing: border-box;
 }
 
-.header-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+#map { 
+    position: absolute;
+    top: 0;
+    left: 360px; 
+    right: 0;
+    bottom: 0;
+    background-color: #e5e3df;
+    z-index: 1;
+}
+
+h2 {
+    margin: 0 0 15px 0;
+    font-size: 22px;
+    color: #1a252f;
     border-bottom: 2px solid #edf2f7;
     padding-bottom: 10px;
+}
+
+#google_translate_element {
     margin-bottom: 15px;
+    width: 100%;
 }
-
-.header-row h2 {
-    margin: 0;
-    font-size: 20px;
-    color: #1a252f;
-}
-
-#google_translate_element select {
-    padding: 6px;
+.goog-te-combo {
+    width: 100%;
+    padding: 8px;
     border-radius: 4px;
     border: 1px solid #cbd5e1;
-    font-size: 12px;
+    font-size: 14px;
     background-color: #f8fafc;
-    cursor: pointer;
-    color: #2c3e50;
 }
-
 .goog-te-gadget { font-size: 0px !important; color: transparent !important; }
 .goog-te-gadget span { display: none !important; }
 .goog-logo-link { display: none !important; }
 body > .skiptranslate { display: none !important; }
 body { top: 0px !important; }
 
-#map { 
-    flex: 1; 
-    height: 100vh; 
-    background-color: #e5e3df;
-    z-index: 1;
-}
-
 .search-box { margin-bottom: 12px; }
 .search-box input { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 14px; box-sizing: border-box; }
-.filters select { width: 100%; margin-bottom: 12px; padding: 8px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; box-sizing: border-box; background: #f8fafc; }
+.filters select { width: 100%; margin-bottom: 12px; padding: 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 14px; box-sizing: border-box; background: #f8fafc; }
 
 .emoji-marker { background: #ffffff; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 16px; border: 2px solid #94a3b8; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15); cursor: pointer; transition: transform 0.15s ease; }
 .emoji-marker:hover { transform: scale(1.18); z-index: 9999; }
