@@ -22,10 +22,12 @@ def fetch_gdacs_events() -> list:
     try:
         response = requests.get(GDACS_SEARCH_URL, timeout=10)
         response.raise_for_status()
-        features = response.json()
+        
+        data = response.json()
+        features = data.get("features", []) if isinstance(data, dict) else data
         
         normalized_events = []
-        for feature in features[:50]: #Limits to 50 latest events for processing
+        for feature in features[:50]:  
             props = feature.get("properties", {})
             geom = feature.get("geometry", {}).get("coordinates", [0.0, 0.0])
             
@@ -35,7 +37,7 @@ def fetch_gdacs_events() -> list:
             normalized_events.append({
                 "incident_id": f"GDACS-{props.get('eventid')}",
                 "country": props.get("country", "Unknown"),
-                "region": "Unknown", #Reverse geocoding via geo_helpers in production
+                "region": "Unknown", 
                 "sub_region": "Unknown",
                 "locality": props.get("name", "Unknown"),
                 "latitude": geom[1] if len(geom) > 1 else 0.0,
