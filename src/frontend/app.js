@@ -103,7 +103,7 @@ function renderMarkers() {
     markersClusterGroup = L.markerClusterGroup({
         maxClusterRadius: 50, 
         spiderfyOnMaxZoom: true,
-        disableClusteringAtZoom: 16 
+        disableClusteringAtZoom: 16
     });
 
     const dropdownValue = document.getElementById('season-filter').value;
@@ -113,59 +113,64 @@ function renderMarkers() {
         return (f.properties.season || '').toLowerCase() === activeSeason.toLowerCase();
     });
 
-    const uniqueAlerts = new Map();
+    const localityGroups = new Map();
     filteredFeatures.forEach(feature => {
         const locality = feature.properties.locality || feature.properties.region || "Unknown Area";
-        const type = feature.properties.disaster_type;
-        const key = `${locality}-${type}`;
+        if (!localityGroups.has(locality)) {
+            localityGroups.set(locality, []);
+        }
+        localityGroups.get(locality).push(feature);
+    });
 
-        if (!uniqueAlerts.has(key)) {
-            uniqueAlerts.set(key, feature);
-        } else {
-            const existingFeature = uniqueAlerts.get(key);
-            const riskLevels = { "low": 1, "medium": 2, "high": 3 };
-            const currentRisk = riskLevels[(feature.properties.risk_level || "low").toLowerCase()] || 0;
-            const existingRisk = riskLevels[(existingFeature.properties.risk_level || "low").toLowerCase()] || 0;
-            
-            if (currentRisk > existingRisk) {
-                uniqueAlerts.set(key, feature);
+    localityGroups.forEach((features, locality) => {
+        const baseFeature = features[0];
+        const lat = baseFeature.geometry ? baseFeature.geometry.coordinates[1] : baseFeature.latitude;
+        const lon = baseFeature.geometry ? baseFeature.geometry.coordinates[0] : baseFeature.longitude;
+
+        const typeCounts = {};
+        features.forEach(f => {
+            typeCounts[f.properties.disaster_type] = (typeCounts[f.properties.disaster_type] || 0) + 1;
+        });
+
+        let topThreat = "Wildfire";
+        let maxCount = 0;
+        for (const [type, count] of Object.entries(typeCounts)) {
+            if (count > maxCount) {
+                maxCount = count;
+                topThreat = type;
             }
         }
-    });
 
-    const masterCoordinates = new Map();
-    uniqueAlerts.forEach((feature) => {
-        const locality = feature.properties.locality || feature.properties.region || "Unknown Area";
-        
-        if (!masterCoordinates.has(locality)) {
-            const lat = feature.geometry ? feature.geometry.coordinates[1] : feature.properties.latitude;
-            const lon = feature.geometry ? feature.geometry.coordinates[0] : feature.properties.longitude;
-            masterCoordinates.set(locality, { lat, lon });
+        const probability = Math.round((maxCount / features.length) * 100);
+
+        if (probability >= 40) {
+            const risk = probability > 65 ? 'high' : (probability > 45 ? 'medium' : 'low');
+            const emojis = { "Wildfire": "🔥", "Flood": "🌊", "Storm": "🌪️", "Heatwave": "☀️", "Earthquake": "🌋", "Drought": "🏜️" };
+            const emoji = emojis[topThreat] || '⚠️';
+
+            const icon = L.divIcon({
+                html: `<div class="emoji-marker risk-${risk}" title="Seasonal Risk: ${probability}% ${topThreat}">${emoji}</div>`,
+                className: '',
+                iconSize: [28, 28],
+                iconAnchor: [14, 14]
+            });
+
+            const marker = L.marker([lat, lon], { icon: icon });
+            
+            marker.on('click', () => {
+                isMarkerClick = true; 
+                displayDetails({
+                    locality: locality,
+                    disaster_type: topThreat,
+                    risk_level: risk,
+                    emoji: emoji,
+                    primary_reason: `High seasonal historical probability (${probability}%) for ${topThreat} during ${activeSeason}.`,
+                    dynamic_precautions: baseFeature.properties.dynamic_precautions || ["Monitor local meteorological bulletins."]
+                }, lat, lon);
+            });
+
+            markersClusterGroup.addLayer(marker);
         }
-    });
-
-    uniqueAlerts.forEach((feature) => {
-        const locality = feature.properties.locality || feature.properties.region || "Unknown Area";
-        const anchor = masterCoordinates.get(locality);
-        
-        const risk = (feature.properties.risk_level || 'Low').toLowerCase();
-        const emoji = feature.properties.emoji || '⚠️';
-        
-        const icon = L.divIcon({
-            html: `<div class="emoji-marker risk-${risk}">${emoji}</div>`,
-            className: '',
-            iconSize: [28, 28],
-            iconAnchor: [14, 14]
-        });
-
-        const marker = L.marker([anchor.lat, anchor.lon], { icon: icon });
-        
-        marker.on('click', () => {
-            isMarkerClick = true; 
-            displayDetails(feature.properties, anchor.lat, anchor.lon);
-        });
-
-        markersClusterGroup.addLayer(marker);
     });
 
     map.addLayer(markersClusterGroup);
@@ -231,22 +236,23 @@ async function triggerAreaPrediction(lat, lon, knownPlaceName = null) {
 
 function updateSidebar(locationTitle, predictions, season, visibleAlerts) {
     const panel = document.getElementById('info-panel');
-    let highestRisk = predictions.length > 0 ? predictions[0].risk_rating.toLowerCase() : 'low';
-    let cardStyle = visibleAlerts.length > 0 ? "high" : (highestRisk === "high" ? "medium" : "low");
-    let listHtml = predictions.map(p => `<li>${p.disaster_type}: <strong>${p.probability_percentage}</strong></li>`).join('');
+    let highestRiskPrediction = predictions[0] || { probability_percentage: "0%" };
+    let topProbValue = parseInt(highestRiskPrediction.probability_percentage) || 0;
 
     let alertStatus = "";
+    let cardStyle = "low";
+
     if (visibleAlerts.length > 0) {
-        let alertsList = visibleAlerts.map(a => `<li><strong>${a.emoji} ${a.disaster_type}</strong> (${a.locality})</li>`).join('');
-        alertStatus = `
-            <div style="margin-top: 10px; color: #dc3545;">
-                <p style="margin-bottom: 5px;"><strong>⚠️ ${visibleAlerts.length} active alert(s) in view:</strong></p>
-                <ul style="padding-left: 18px; margin-top: 0;">${alertsList}</ul>
-                <p style="font-size: 12px; color: #64748b; margin-top: 8px;"><em>Click map emojis for full emergency precautions.</em></p>
-            </div>`;
+        cardStyle = "high";
+        alertStatus = `<p style="color: rgb(255, 0, 25);"><strong>⚠️ ${visibleAlerts.length} active emergency alert(s) in view.</strong></p>`;
+    } else if (topProbValue >= 50) {
+        cardStyle = "medium";
+        alertStatus = `<p style="color: #ff8800;"><strong>⚠️ Seasonal Advisory: High probability of ${highestRiskPrediction.disaster_type} (${topProbValue}).</strong></p>`;
     } else {
-        alertStatus = `<p style="color: #28a745;"><strong>✅ No active alerts reported.</strong></p>`;
+        alertStatus = `<p style="color: #00ff3c;"><strong>✅ Low seasonal risk profile.</strong></p>`;
     }
+
+    let listHtml = predictions.map(p => `<li>${p.disaster_type}: <strong>${p.probability_percentage}</strong></li>`).join('');
 
     panel.innerHTML = `
         <div class="info-card ${cardStyle}">
