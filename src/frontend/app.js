@@ -1,8 +1,16 @@
 let map;
-let geojsonLayer;
+let markersClusterGroup;
 let allDisasterData = [];
 let debounceTimer;
 let isMarkerClick = false;
+
+function getCurrentSeason() {
+    const month = new Date().getMonth() + 1;
+    if (month >= 3 && month <= 5) return 'Spring';
+    if (month >= 6 && month <= 8) return 'Summer';
+    if (month >= 9 && month <= 11) return 'Autumn';
+    return 'Winter';
+}
 
 async function initApp() {
     
@@ -88,86 +96,59 @@ async function fetchAllDisasters() {
 }
 
 function renderMarkers() {
-    if (geojsonLayer) map.removeLayer(geojsonLayer);
-    const selectedSeason = document.getElementById('season-filter').value;
-    
-    const filteredFeatures = allDisasterData.filter(f => {
-        if (!selectedSeason) return true;
-        return (f.properties.season || '').toLowerCase() === selectedSeason.toLowerCase();
+    if (markersClusterGroup) {
+        map.removeLayer(markersClusterGroup);
+    }
+
+    markersClusterGroup = L.markerClusterGroup({
+        maxClusterRadius: 45, 
+        spiderfyOnMaxZoom: true,
+        disableClusteringAtZoom: 15 
     });
 
-    const gridAlerts = new Map();
+    const dropdownValue = document.getElementById('season-filter').value;
+    const activeSeason = dropdownValue === "" ? getCurrentSeason() : dropdownValue;
+    
+    const filteredFeatures = allDisasterData.filter(f => {
+        return (f.properties.season || '').toLowerCase() === activeSeason.toLowerCase();
+    });
+
+    const uniqueAlerts = new Map();
     filteredFeatures.forEach(feature => {
         const lat = feature.geometry ? feature.geometry.coordinates[1] : feature.properties.latitude;
         const lon = feature.geometry ? feature.geometry.coordinates[0] : feature.properties.longitude;
         const type = feature.properties.disaster_type;
-        
-        const gridKey = `${parseFloat(lat).toFixed(2)}-${parseFloat(lon).toFixed(2)}-${type}`;
-        
-        if (!gridAlerts.has(gridKey)) {
-            gridAlerts.set(gridKey, feature);
+        const exactKey = `${lat}-${lon}-${type}`;
+
+        if (!uniqueAlerts.has(exactKey)) {
+            uniqueAlerts.set(exactKey, feature);
         }
     });
 
-    const overlappingGroups = new Map();
-    Array.from(gridAlerts.values()).forEach(feature => {
+    uniqueAlerts.forEach(feature => {
         const lat = feature.geometry ? feature.geometry.coordinates[1] : feature.properties.latitude;
         const lon = feature.geometry ? feature.geometry.coordinates[0] : feature.properties.longitude;
-        const exactKey = `${lat},${lon}`;
-
-        if (!overlappingGroups.has(exactKey)) {
-            overlappingGroups.set(exactKey, []);
-        }
-        overlappingGroups.get(exactKey).push(feature);
-    });
-
-    const finalFeatures = [];
-    
-    overlappingGroups.forEach(alerts => {
-        const radius = 0.003; 
+        const risk = (feature.properties.risk_level || 'Low').toLowerCase();
+        const emoji = feature.properties.emoji || '⚠️';
         
-        alerts.forEach((feature, index) => {
-            const offsetFeature = JSON.parse(JSON.stringify(feature));
-            let baseLat = offsetFeature.geometry ? offsetFeature.geometry.coordinates[1] : offsetFeature.properties.latitude;
-            let baseLon = offsetFeature.geometry ? offsetFeature.geometry.coordinates[0] : offsetFeature.properties.longitude;
-            
-            if (alerts.length > 1) {
-                const angle = (index / alerts.length) * Math.PI * 2;
-                baseLat += Math.cos(angle) * radius;
-                baseLon += Math.sin(angle) * radius;
-            }
-            
-            if (offsetFeature.geometry) {
-                offsetFeature.geometry.coordinates = [baseLon, baseLat];
-            } else {
-                offsetFeature.properties.latitude = baseLat;
-                offsetFeature.properties.longitude = baseLon;
-            }
-            finalFeatures.push(offsetFeature);
+        const icon = L.divIcon({
+            html: `<div class="emoji-marker risk-${risk}">${emoji}</div>`,
+            className: '',
+            iconSize: [28, 28],
+            iconAnchor: [14, 14]
         });
+
+        const marker = L.marker([lat, lon], { icon: icon });
+        
+        marker.on('click', () => {
+            isMarkerClick = true; 
+            displayDetails(feature.properties, lat, lon);
+        });
+
+        markersClusterGroup.addLayer(marker);
     });
 
-    geojsonLayer = L.geoJSON({ type: "FeatureCollection", features: finalFeatures }, {
-        pointToLayer: function (feature, latlng) {
-            const risk = (feature.properties.risk_level || 'Low').toLowerCase();
-            const emoji = feature.properties.emoji || '⚠️';
-            const icon = L.divIcon({
-                html: `<div class="emoji-marker risk-${risk}">${emoji}</div>`,
-                className: '',
-                iconSize: [28, 28],
-                iconAnchor: [14, 14]
-            });
-            return L.marker(latlng, { icon: icon });
-        },
-        onEachFeature: function (feature, layer) {
-            layer.on('click', () => {
-                isMarkerClick = true; 
-                const lat = feature.geometry ? feature.geometry.coordinates[1] : feature.properties.latitude;
-                const lon = feature.geometry ? feature.geometry.coordinates[0] : feature.properties.longitude;
-                displayDetails(feature.properties, lat, lon);
-            });
-        }
-    }).addTo(map);
+    map.addLayer(markersClusterGroup);
 }
 
 async function searchLocation(query) {
@@ -212,8 +193,8 @@ async function triggerAreaPrediction(lat, lon, knownPlaceName = null) {
         const bounds = map.getBounds();
         
         let visibleAlerts = [];
-        if (geojsonLayer) {
-            geojsonLayer.eachLayer(layer => {
+        if (markersClusterGroup) {
+            markersClusterGroup.eachLayer(layer => {
                 if (bounds.contains(layer.getLatLng())) {
                     visibleAlerts.push(layer.feature.properties);
                 }
