@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.api.dependencies import get_disaster_data, get_predictor
 from src.models.inference import DisasterPredictor
 from src.data.schemas import SeasonEnum
+import math
 
 app = FastAPI(
     title="Disaster Risk & Prediction API",
@@ -33,6 +34,23 @@ def get_current_season() -> str:
         return SeasonEnum.AUTUMN.value
     return SeasonEnum.WINTER.value
 
+def get_nearest_region(lat: float, lon: float, features: List[Dict]) -> Optional[Dict]:
+    """Finds the closest regional data point using Euclidean distance."""
+    min_dist = float('inf')
+    nearest_props = None
+    
+    for feature in features:
+        geom = feature.get("geometry", {})
+        if geom.get("type") == "Point":
+            coords = geom.get("coordinates", [0, 0])
+            f_lon, f_lat = coords[0], coords[1]
+            
+            dist = math.hypot(f_lat - lat, f_lon - lon)
+            if dist < min_dist:
+                min_dist = dist
+                nearest_props = feature.get("properties")
+                
+    return nearest_props
 
 @app.get("/api/v1/hierarchy", tags=["Locations"])
 def get_location_hierarchy(data: Dict[str, Any] = Depends(get_disaster_data)):
@@ -107,21 +125,32 @@ def get_default_view(
     lon: Optional[float] = Query(None, description="User longitude"),
     data: Dict[str, Any] = Depends(get_disaster_data)
 ):
-    """Generates the initial map center and current seasonal active alerts."""
+    """Generates the localized map center and active alerts based on user location."""
     current_season = get_current_season()
+    features = data.get("features", [])
     
-    default_center = {"lat": 40.8539, "lon": 25.8741, "zoom": 8}
+    center_lat, center_lon = 40.8539, 25.8741
     matched_country = "Greece"
+    matched_region = "East Macedonia and Thrace"
     
+    if lat is not None and lon is not None:
+        nearest = get_nearest_region(lat, lon, features)
+        if nearest:
+            matched_country = nearest.get("country", matched_country)
+            matched_region = nearest.get("region", matched_region)
+            center_lat, center_lon = lat, lon
+
     active_features = [
-        f for f in data.get("features", [])
+        f for f in features
         if f["properties"].get("season", "").lower() == current_season.lower()
+        and f["properties"].get("country", "") == matched_country
     ]
     
     return {
         "current_season": current_season,
-        "default_center": default_center,
+        "default_center": {"lat": center_lat, "lon": center_lon, "zoom": 8},
         "matched_country": matched_country,
+        "matched_region": matched_region,
         "active_seasonal_features": {
             "type": "FeatureCollection",
             "features": active_features
