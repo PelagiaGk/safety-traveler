@@ -101,9 +101,9 @@ function renderMarkers() {
     }
 
     markersClusterGroup = L.markerClusterGroup({
-        maxClusterRadius: 45, 
+        maxClusterRadius: 50, 
         spiderfyOnMaxZoom: true,
-        disableClusteringAtZoom: 15 
+        disableClusteringAtZoom: 16 
     });
 
     const dropdownValue = document.getElementById('season-filter').value;
@@ -115,19 +115,39 @@ function renderMarkers() {
 
     const uniqueAlerts = new Map();
     filteredFeatures.forEach(feature => {
-        const lat = feature.geometry ? feature.geometry.coordinates[1] : feature.properties.latitude;
-        const lon = feature.geometry ? feature.geometry.coordinates[0] : feature.properties.longitude;
+        const locality = feature.properties.locality || feature.properties.region || "Unknown Area";
         const type = feature.properties.disaster_type;
-        const exactKey = `${lat}-${lon}-${type}`;
+        const key = `${locality}-${type}`;
 
-        if (!uniqueAlerts.has(exactKey)) {
-            uniqueAlerts.set(exactKey, feature);
+        if (!uniqueAlerts.has(key)) {
+            uniqueAlerts.set(key, feature);
+        } else {
+            const existingFeature = uniqueAlerts.get(key);
+            const riskLevels = { "low": 1, "medium": 2, "high": 3 };
+            const currentRisk = riskLevels[(feature.properties.risk_level || "low").toLowerCase()] || 0;
+            const existingRisk = riskLevels[(existingFeature.properties.risk_level || "low").toLowerCase()] || 0;
+            
+            if (currentRisk > existingRisk) {
+                uniqueAlerts.set(key, feature);
+            }
         }
     });
 
-    uniqueAlerts.forEach(feature => {
-        const lat = feature.geometry ? feature.geometry.coordinates[1] : feature.properties.latitude;
-        const lon = feature.geometry ? feature.geometry.coordinates[0] : feature.properties.longitude;
+    const masterCoordinates = new Map();
+    uniqueAlerts.forEach((feature) => {
+        const locality = feature.properties.locality || feature.properties.region || "Unknown Area";
+        
+        if (!masterCoordinates.has(locality)) {
+            const lat = feature.geometry ? feature.geometry.coordinates[1] : feature.properties.latitude;
+            const lon = feature.geometry ? feature.geometry.coordinates[0] : feature.properties.longitude;
+            masterCoordinates.set(locality, { lat, lon });
+        }
+    });
+
+    uniqueAlerts.forEach((feature) => {
+        const locality = feature.properties.locality || feature.properties.region || "Unknown Area";
+        const anchor = masterCoordinates.get(locality);
+        
         const risk = (feature.properties.risk_level || 'Low').toLowerCase();
         const emoji = feature.properties.emoji || '⚠️';
         
@@ -138,11 +158,11 @@ function renderMarkers() {
             iconAnchor: [14, 14]
         });
 
-        const marker = L.marker([lat, lon], { icon: icon });
+        const marker = L.marker([anchor.lat, anchor.lon], { icon: icon });
         
         marker.on('click', () => {
             isMarkerClick = true; 
-            displayDetails(feature.properties, lat, lon);
+            displayDetails(feature.properties, anchor.lat, anchor.lon);
         });
 
         markersClusterGroup.addLayer(marker);
