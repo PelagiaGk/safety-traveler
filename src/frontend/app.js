@@ -109,27 +109,67 @@ function renderMarkers() {
         return (f.properties.season || '').toLowerCase() === selectedSeason.toLowerCase();
     });
 
-    const uniqueAlerts = new Map();
+    const groupedAlerts = new Map();
     
     filteredFeatures.forEach(feature => {
         const locality = feature.properties.locality || feature.properties.region || "Unknown";
-        const type = feature.properties.disaster_type;
-        const key = `${locality}-${type}`;
+        if (!groupedAlerts.has(locality)) {
+            groupedAlerts.set(locality, []);
+        }
         
-        const riskWeight = { "low": 1, "medium": 2, "high": 3 };
-        const currentWeight = riskWeight[(feature.properties.risk_level || 'low').toLowerCase()] || 0;
+        const existing = groupedAlerts.get(locality);
+        const isDuplicate = existing.some(e => e.properties.disaster_type === feature.properties.disaster_type);
         
-        if (!uniqueAlerts.has(key)) {
-            uniqueAlerts.set(key, feature);
-        } else {
-            const existingFeature = uniqueAlerts.get(key);
-            const existingWeight = riskWeight[(existingFeature.properties.risk_level || 'low').toLowerCase()] || 0;
-            
-            if (currentWeight > existingWeight) {
-                uniqueAlerts.set(key, feature);
-            }
+        if (!isDuplicate) {
+            existing.push(feature);
         }
     });
+
+    const finalFeatures = [];
+    
+    groupedAlerts.forEach((alerts, locality) => {
+        const radius = 0.08; 
+
+        alerts.forEach((feature, index) => {
+            const offsetFeature = JSON.parse(JSON.stringify(feature));
+            const baseLat = feature.geometry ? feature.geometry.coordinates[1] : feature.properties.latitude;
+            const baseLon = feature.geometry ? feature.geometry.coordinates[0] : feature.properties.longitude;
+            
+            if (alerts.length > 1) {
+                const angle = (index / alerts.length) * Math.PI * 2;
+                const latOffset = Math.cos(angle) * radius;
+                const lonOffset = Math.sin(angle) * radius;
+                
+                offsetFeature.properties.displayLat = baseLat + latOffset;
+                offsetFeature.properties.displayLon = baseLon + lonOffset;
+            } else {
+                offsetFeature.properties.displayLat = baseLat;
+                offsetFeature.properties.displayLon = baseLon;
+            }
+            
+            finalFeatures.push(offsetFeature);
+        });
+    });
+
+    geojsonLayer = L.geoJSON({ type: "FeatureCollection", features: finalFeatures }, {
+        pointToLayer: function (feature, latlng) {
+            const displayLatLng = [feature.properties.displayLat, feature.properties.displayLon];
+            const risk = (feature.properties.risk_level || 'Low').toLowerCase();
+            const emoji = feature.properties.emoji || '⚠️';
+            
+            const icon = L.divIcon({
+                html: `<div class="emoji-marker risk-${risk}">${emoji}</div>`,
+                className: '',
+                iconSize: [28, 28],
+                iconAnchor: [14, 14]
+            });
+            return L.marker(displayLatLng, { icon: icon });
+        },
+        onEachFeature: function (feature, layer) {
+            layer.on('click', () => displayDetails(feature.properties));
+        }
+    }).addTo(map);
+}
 
     const deduplicatedFeatures = Array.from(uniqueAlerts.values());
 
