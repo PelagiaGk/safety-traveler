@@ -124,12 +124,16 @@ function renderMarkers() {
 
     localityGroups.forEach((features, locality) => {
         const baseFeature = features[0];
+        
         const lat = baseFeature.geometry ? baseFeature.geometry.coordinates[1] : baseFeature.latitude;
         const lon = baseFeature.geometry ? baseFeature.geometry.coordinates[0] : baseFeature.longitude;
 
+        if (!lat || !lon) return; 
+
         const typeCounts = {};
         features.forEach(f => {
-            typeCounts[f.properties.disaster_type] = (typeCounts[f.properties.disaster_type] || 0) + 1;
+            const dtype = f.properties ? f.properties.disaster_type : f.disaster_type;
+            typeCounts[dtype] = (typeCounts[dtype] || 0) + 1;
         });
 
         let topThreat = "Wildfire";
@@ -165,7 +169,7 @@ function renderMarkers() {
                     risk_level: risk,
                     emoji: emoji,
                     primary_reason: `High seasonal historical probability (${probability}%) for ${topThreat} during ${activeSeason}.`,
-                    dynamic_precautions: baseFeature.properties.dynamic_precautions || ["Monitor local meteorological bulletins."]
+                    dynamic_precautions: baseFeature.properties?.dynamic_precautions || ["Monitor local meteorological bulletins."]
                 }, lat, lon);
             });
 
