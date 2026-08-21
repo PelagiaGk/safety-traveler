@@ -96,18 +96,56 @@ function renderMarkers() {
         return (f.properties.season || '').toLowerCase() === selectedSeason.toLowerCase();
     });
 
-    const uniqueAlerts = new Map();
+    const gridAlerts = new Map();
     filteredFeatures.forEach(feature => {
-        const coords = feature.geometry ? feature.geometry.coordinates.join(',') : `${feature.properties.longitude},${feature.properties.latitude}`;
+        const lat = feature.geometry ? feature.geometry.coordinates[1] : feature.properties.latitude;
+        const lon = feature.geometry ? feature.geometry.coordinates[0] : feature.properties.longitude;
         const type = feature.properties.disaster_type;
-        const key = `${coords}-${type}`;
-
-        if (!uniqueAlerts.has(key)) {
-            uniqueAlerts.set(key, feature);
+        
+        const gridKey = `${parseFloat(lat).toFixed(2)}-${parseFloat(lon).toFixed(2)}-${type}`;
+        
+        if (!gridAlerts.has(gridKey)) {
+            gridAlerts.set(gridKey, feature);
         }
     });
 
-    const finalFeatures = Array.from(uniqueAlerts.values());
+    const overlappingGroups = new Map();
+    Array.from(gridAlerts.values()).forEach(feature => {
+        const lat = feature.geometry ? feature.geometry.coordinates[1] : feature.properties.latitude;
+        const lon = feature.geometry ? feature.geometry.coordinates[0] : feature.properties.longitude;
+        const exactKey = `${lat},${lon}`;
+
+        if (!overlappingGroups.has(exactKey)) {
+            overlappingGroups.set(exactKey, []);
+        }
+        overlappingGroups.get(exactKey).push(feature);
+    });
+
+    const finalFeatures = [];
+    
+    overlappingGroups.forEach(alerts => {
+        const radius = 0.003; 
+        
+        alerts.forEach((feature, index) => {
+            const offsetFeature = JSON.parse(JSON.stringify(feature));
+            let baseLat = offsetFeature.geometry ? offsetFeature.geometry.coordinates[1] : offsetFeature.properties.latitude;
+            let baseLon = offsetFeature.geometry ? offsetFeature.geometry.coordinates[0] : offsetFeature.properties.longitude;
+            
+            if (alerts.length > 1) {
+                const angle = (index / alerts.length) * Math.PI * 2;
+                baseLat += Math.cos(angle) * radius;
+                baseLon += Math.sin(angle) * radius;
+            }
+            
+            if (offsetFeature.geometry) {
+                offsetFeature.geometry.coordinates = [baseLon, baseLat];
+            } else {
+                offsetFeature.properties.latitude = baseLat;
+                offsetFeature.properties.longitude = baseLon;
+            }
+            finalFeatures.push(offsetFeature);
+        });
+    });
 
     geojsonLayer = L.geoJSON({ type: "FeatureCollection", features: finalFeatures }, {
         pointToLayer: function (feature, latlng) {
@@ -124,10 +162,8 @@ function renderMarkers() {
         onEachFeature: function (feature, layer) {
             layer.on('click', () => {
                 isMarkerClick = true; 
-                
                 const lat = feature.geometry ? feature.geometry.coordinates[1] : feature.properties.latitude;
                 const lon = feature.geometry ? feature.geometry.coordinates[0] : feature.properties.longitude;
-                
                 displayDetails(feature.properties, lat, lon);
             });
         }
