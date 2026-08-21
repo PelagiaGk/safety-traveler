@@ -101,54 +101,52 @@ function renderMarkers() {
     }
 
     markersClusterGroup = L.markerClusterGroup({
-        maxClusterRadius: 50, 
+        maxClusterRadius: 40, 
         spiderfyOnMaxZoom: true,
-        disableClusteringAtZoom: 16
+        disableClusteringAtZoom: 15
     });
 
     const dropdownValue = document.getElementById('season-filter').value;
     const activeSeason = dropdownValue === "" ? getCurrentSeason() : dropdownValue;
     
-    const filteredFeatures = allDisasterData.filter(f => {
-        return (f.properties.season || '').toLowerCase() === activeSeason.toLowerCase();
+    const filteredRecords = allDisasterData.filter(record => {
+        const recordSeason = record.season || record.properties?.season || '';
+        return recordSeason.toLowerCase() === activeSeason.toLowerCase();
     });
 
-    const localityGroups = new Map();
-    filteredFeatures.forEach(feature => {
-        const locality = feature.properties.locality || feature.properties.region || "Unknown Area";
-        if (!localityGroups.has(locality)) {
-            localityGroups.set(locality, []);
+    const localityMap = new Map();
+    filteredRecords.forEach(record => {
+        const locality = record.locality || record.properties?.locality || "Unknown";
+        if (!localityMap.has(locality)) {
+            localityMap.set(locality, {
+                lat: record.latitude || record.geometry?.coordinates[1],
+                lon: record.longitude || record.geometry?.coordinates[0],
+                types: []
+            });
         }
-        localityGroups.get(locality).push(feature);
+        const dtype = record.disaster_type || record.properties?.disaster_type;
+        if (dtype) localityMap.get(locality).types.push(dtype);
     });
 
-    localityGroups.forEach((features, locality) => {
-        const baseFeature = features[0];
-        
-        const lat = baseFeature.geometry ? baseFeature.geometry.coordinates[1] : baseFeature.latitude;
-        const lon = baseFeature.geometry ? baseFeature.geometry.coordinates[0] : baseFeature.longitude;
+    localityMap.forEach((data, locality) => {
+        if (!data.lat || !data.lon || data.types.length === 0) return;
 
-        if (!lat || !lon) return; 
+        const counts = {};
+        data.types.forEach(t => counts[t] = (counts[t] || 0) + 1);
 
-        const typeCounts = {};
-        features.forEach(f => {
-            const dtype = f.properties ? f.properties.disaster_type : f.disaster_type;
-            typeCounts[dtype] = (typeCounts[dtype] || 0) + 1;
-        });
-
-        let topThreat = "Wildfire";
+        let topThreat = "";
         let maxCount = 0;
-        for (const [type, count] of Object.entries(typeCounts)) {
+        for (const [t, count] of Object.entries(counts)) {
             if (count > maxCount) {
                 maxCount = count;
-                topThreat = type;
+                topThreat = t;
             }
         }
 
-        const probability = Math.round((maxCount / features.length) * 100);
+        const probability = Math.round((maxCount / data.types.length) * 100);
 
         if (probability >= 40) {
-            const risk = probability > 65 ? 'high' : (probability > 45 ? 'medium' : 'low');
+            const risk = probability >= 65 ? 'high' : 'medium';
             const emojis = { "Wildfire": "🔥", "Flood": "🌊", "Storm": "🌪️", "Heatwave": "☀️", "Earthquake": "🌋", "Drought": "🏜️" };
             const emoji = emojis[topThreat] || '⚠️';
 
@@ -159,7 +157,7 @@ function renderMarkers() {
                 iconAnchor: [14, 14]
             });
 
-            const marker = L.marker([lat, lon], { icon: icon });
+            const marker = L.marker([data.lat, data.lon], { icon: icon });
             
             marker.on('click', () => {
                 isMarkerClick = true; 
@@ -169,8 +167,8 @@ function renderMarkers() {
                     risk_level: risk,
                     emoji: emoji,
                     primary_reason: `High seasonal historical probability (${probability}%) for ${topThreat} during ${activeSeason}.`,
-                    dynamic_precautions: baseFeature.properties?.dynamic_precautions || ["Monitor local meteorological bulletins."]
-                }, lat, lon);
+                    dynamic_precautions: ["Monitor local meteorological bulletins and regional safety warnings."]
+                }, data.lat, data.lon);
             });
 
             markersClusterGroup.addLayer(marker);
