@@ -165,8 +165,14 @@ function renderMarkers() {
             return L.marker(latlng, { icon: icon });
         },
         onEachFeature: function (feature, layer) {
-            layer.on('click', () => displayDetails(feature.properties));
+            layer.on('click', () => {
+                const latlng = layer.getLatLng();
+                map.flyTo(latlng, 9, { animate: true, duration: 0.5 });
+                displayDetails(feature.properties, latlng.lat, latlng.lng);
+            });
         }
+    }).addTo(map);
+}
     }).addTo(map);
 }
 
@@ -190,13 +196,16 @@ async function triggerAreaPrediction(lat, lon, knownPlaceName = null) {
 
     if (!placeName) {
         try {
-            const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10`);
+            const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=14`);
             const geoData = await geoRes.json();
+            
             if (geoData.error) {
                 panel.innerHTML = `<div class="info-card low"><h3>🌊 Uncharted Area</h3><p>No active alerts.</p></div>`;
                 return;
             }
-            placeName = geoData.name || geoData.address.city || geoData.address.country;
+            
+            const addr = geoData.address || {};
+            placeName = addr.village || addr.town || addr.suburb || addr.city_district || addr.city || geoData.name || addr.country;
         } catch (e) { placeName = "Selected Area"; }
     }
 
@@ -284,16 +293,53 @@ function updateSidebarNoData(locationTitle, season, visibleAlerts) {
     `;
 }
 
-function displayDetails(props) {
-    document.getElementById('info-panel').innerHTML = `
-        <div class="info-card ${(props.risk_level || 'medium').toLowerCase()}">
-            <h3>${props.locality || 'Alert'}, ${props.region || props.country}</h3>
-            <p><strong>Concern:</strong> ${props.emoji} ${props.disaster_type}</p>
-            <p><strong>Reason:</strong> ${props.primary_reason}</p>
-            <h4>Precautions:</h4>
-            <ul>${(props.dynamic_precautions || []).map(t => `<li>${t}</li>`).join('')}</ul>
-        </div>
-    `;
+async function displayDetails(props, lat, lon) {
+    const panel = document.getElementById('info-panel');
+    panel.innerHTML = '<p>Loading incident details and historical forecasts...</p>';
+
+    const season = document.getElementById('season-filter').value || props.season || "Current";
+    let placeName = props.locality || props.region || "Selected Area";
+
+    let url = `/api/v1/predict?lat=${lat}&lon=${lon}&region=${encodeURIComponent(placeName)}`;
+    if (season && season !== "Current") url += `&season=${season}`;
+    
+    try {
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        let listHtml = "";
+        if (data.predictions) {
+            listHtml = data.predictions.map(p => `<li>${p.disaster_type}: <strong>${p.probability_percentage}</strong></li>`).join('');
+        } else {
+            listHtml = `<p style="color: #64748b; font-size: 13px;"><em>No historical ML training data available for this specific region.</em></p>`;
+        }
+
+        panel.innerHTML = `
+            <div class="info-card ${(props.risk_level || 'medium').toLowerCase()}">
+                <h3>📍 ${placeName}</h3>
+                <p><strong>Season:</strong> ${season}</p>
+                
+                <div style="margin-top: 15px; background: #fff5f5; padding: 12px; border-radius: 6px; border: 1px solid #ffc9c9;">
+                    <p style="margin: 0 0 8px 0; color: #dc3545; font-size: 15px;">
+                        <strong>⚠️ Active Alert: ${props.emoji} ${props.disaster_type}</strong>
+                    </p>
+                    <p style="margin: 0 0 8px 0; font-size: 13px;"><strong>Reason:</strong> ${props.primary_reason}</p>
+                    <p style="margin: 0 0 4px 0; font-size: 12px; font-weight: bold; text-transform: uppercase;">Precautions:</p>
+                    <ul style="padding-left: 18px; margin: 0; font-size: 13px;">
+                        ${(props.dynamic_precautions || []).map(t => `<li>${t}</li>`).join('')}
+                    </ul>
+                </div>
+                
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
+                
+                <h4>Historical Forecast:</h4>
+                <ul>${listHtml}</ul>
+            </div>
+        `;
+    } catch (err) {
+        console.error("Failed to load details", err);
+        panel.innerHTML = `<p>Error loading incident data.</p>`;
+    }
 }
 
 initApp();
