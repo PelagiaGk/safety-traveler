@@ -1,18 +1,24 @@
 """FastAPI Main Application."""
-from datetime import datetime
+import sys
+import math
+from pathlib import Path
+from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
+
 from fastapi import FastAPI, Query, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
+BASE_DIR = Path(__file__).resolve().parents[2]
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
+
 from src.api.dependencies import get_disaster_data, get_predictor
 from src.models.inference import DisasterPredictor
 from src.data.schemas import SeasonEnum
-import math
 
-app = FastAPI(
-    title="Disaster Risk & Prediction API",
-    description="Interactive geospatial disaster tracking and seasonal risk estimation.",
-    version="1.0.0"
-)
+app = FastAPI(title="Safety Traveler API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -22,16 +28,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 def get_current_season() -> str:
     """Determines meteorological season from current UTC month."""
     month = datetime.now(timezone.utc).month
-    if month in [3, 4, 5]:
-        return SeasonEnum.SPRING.value
-    if month in [6, 7, 8]:
-        return SeasonEnum.SUMMER.value
-    if month in [9, 10, 11]:
-        return SeasonEnum.AUTUMN.value
+    if month in [3, 4, 5]: return SeasonEnum.SPRING.value
+    if month in [6, 7, 8]: return SeasonEnum.SUMMER.value
+    if month in [9, 10, 11]: return SeasonEnum.AUTUMN.value
     return SeasonEnum.WINTER.value
 
 def get_nearest_region(lat: float, lon: float, features: List[Dict]) -> Optional[Dict]:
@@ -52,72 +54,39 @@ def get_nearest_region(lat: float, lon: float, features: List[Dict]) -> Optional
                 
     return nearest_props
 
-@app.get("/api/v1/hierarchy", tags=["Locations"])
+@app.get("/api/v1/hierarchy")
 def get_location_hierarchy(data: Dict[str, Any] = Depends(get_disaster_data)):
-    """Returns available countries, regions, and sub-regions for dynamic search dropdowns."""
-    hierarchy: Dict[str, Dict[str, List[str]]] = {}
-    
+    hierarchy = {}
     for feature in data.get("features", []):
         props = feature["properties"]
-        country = props.get("country", "Unknown")
-        region = props.get("region", "Unknown")
-        sub_region = props.get("sub_region", "Unknown")
-
-        if country not in hierarchy:
-            hierarchy[country] = {}
-        if region not in hierarchy[country]:
-            hierarchy[country][region] = []
-        if sub_region not in hierarchy[country][region]:
-            hierarchy[country][region].append(sub_region)
-
+        c, r, s = props.get("country", "Unknown"), props.get("region", "Unknown"), props.get("sub_region", "Unknown")
+        if c not in hierarchy: hierarchy[c] = {}
+        if r not in hierarchy[c]: hierarchy[c][r] = []
+        if s not in hierarchy[c][r]: hierarchy[c][r].append(s)
     return {"hierarchy": hierarchy}
 
-
-@app.get("/api/v1/disasters", tags=["GeoSpatial Data"])
+@app.get("/api/v1/disasters")
 def get_disasters(
-    country: Optional[str] = Query(None, description="Country filter, e.g. Greece"),
-    region: Optional[str] = Query(None, description="Region filter, e.g. East Macedonia and Thrace"),
-    sub_region: Optional[str] = Query(None, description="Sub-region/Unit, e.g. Evros"),
-    season: Optional[str] = Query(None, description="Season filter: Spring, Summer, Autumn, Winter"),
+    country: Optional[str] = None, region: Optional[str] = None, 
+    sub_region: Optional[str] = None, season: Optional[str] = None,
     data: Dict[str, Any] = Depends(get_disaster_data)
 ):
-    """Returns filtered GeoJSON points with disaster emojis, likelihood, and precautions."""
-    filtered_features = []
-    
-    for feature in data.get("features", []):
-        props = feature["properties"]
-        if country and props.get("country", "").lower() != country.lower():
-            continue
-        if region and props.get("region", "").lower() != region.lower():
-            continue
-        if sub_region and props.get("sub_region", "").lower() != sub_region.lower():
-            continue
-        if season and props.get("season", "").lower() != season.lower():
-            continue
-        filtered_features.append(feature)
+    filtered = []
+    for f in data.get("features", []):
+        p = f["properties"]
+        if country and p.get("country", "").lower() != country.lower(): continue
+        if region and p.get("region", "").lower() != region.lower(): continue
+        if sub_region and p.get("sub_region", "").lower() != sub_region.lower(): continue
+        if season and p.get("season", "").lower() != season.lower(): continue
+        filtered.append(f)
+    return {"type": "FeatureCollection", "features": filtered}
 
-    return {
-        "type": "FeatureCollection",
-        "total_results": len(filtered_features),
-        "features": filtered_features
-    }
-
-
-@app.get("/api/v1/predict", tags=["Predictions"])
-def predict_risk(
-    region: str = Query(..., description="Administrative Region, e.g. East Macedonia and Thrace"),
-    season: Optional[str] = Query(None, description="Season (defaults to current season)"),
-    predictor: DisasterPredictor = Depends(get_predictor)
-):
-    """Calculates ML-based probability estimates for upcoming seasons."""
+@app.get("/api/v1/predict")
+def predict_risk(region: str, season: Optional[str] = None, predictor: DisasterPredictor = Depends(get_predictor)):
     active_season = season if season else get_current_season()
-    prediction_result = predictor.predict(region=region, season=active_season)
-    
-    if "error" in prediction_result:
-        raise HTTPException(status_code=404, detail=prediction_result["error"])
-        
-    return prediction_result
-
+    res = predictor.predict(region=region, season=active_season)
+    if "error" in res: raise HTTPException(status_code=404, detail=res["error"])
+    return res
 
 @app.get("/api/v1/default-view", tags=["Default View"])
 def get_default_view(
@@ -154,3 +123,15 @@ def get_default_view(
             "features": active_features
         }
     }
+
+FRONTEND_DIR = BASE_DIR / "src" / "frontend"
+
+app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
+
+@app.get("/")
+def serve_frontend():
+    """Serves the main HTML file."""
+    index_file = FRONTEND_DIR / "index.html"
+    if not index_file.exists():
+        raise HTTPException(status_code=404, detail="index.html not found. Did you create it in src/frontend?")
+    return FileResponse(str(index_file))
