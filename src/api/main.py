@@ -18,7 +18,7 @@ from src.api.dependencies import get_disaster_data, get_predictor
 from src.models.inference import DisasterPredictor
 from src.data.schemas import SeasonEnum
 
-app = FastAPI(title="Safety Traveler API")
+app = FastAPI(title="Safety Traveler API", page_icon= "🌍")
 
 app.add_middleware(
     CORSMiddleware,
