@@ -4,8 +4,7 @@ let allDisasterData = [];
 let debounceTimer;
 
 async function initApp() {
-    setupLanguageSelector();
-
+    
     const defaultCenter = [39.0, 22.0];
     const bounds = L.latLngBounds(L.latLng(-90, -180), L.latLng(90, 180));
 
@@ -68,24 +67,6 @@ async function initApp() {
             const center = map.getCenter();
             triggerAreaPrediction(center.lat, center.lng);
         }
-    });
-}
-
-function setupLanguageSelector() {
-    const langBtn = document.getElementById('lang-btn');
-    const langMenu = document.getElementById('lang-menu');
-    
-    langBtn.addEventListener('click', () => {
-        langMenu.classList.toggle('hidden');
-    });
-
-    document.querySelectorAll('.lang-option').forEach(option => {
-        option.addEventListener('click', (e) => {
-            const langCode = e.target.getAttribute('data-lang');
-            document.cookie = `googtrans=${langCode}; path=/; domain=${window.location.hostname}`;
-            document.cookie = `googtrans=${langCode}; path=/`; 
-            window.location.reload();
-        });
     });
 }
 
