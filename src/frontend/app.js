@@ -4,12 +4,27 @@ let allDisasterData = [];
 let debounceTimer;
 
 async function initApp() {
-    const defaultCenter = [39.0, 22.0];
-    map = L.map('map').setView(defaultCenter, 5);
+    setupLanguageSelector();
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
+    const defaultCenter = [39.0, 22.0];
+    const bounds = L.latLngBounds(L.latLng(-90, -180), L.latLng(90, 180));
+
+    map = L.map('map', {
+        center: defaultCenter,
+        zoom: 5,
+        minZoom: 3,
+        maxBounds: bounds,
+        maxBoundsViscosity: 1.0
+    });
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution: '© OpenStreetMap contributors',
+        noWrap: true,
+        bounds: bounds
     }).addTo(map);
+
+    setTimeout(() => { map.invalidateSize(); }, 300);
+    window.addEventListener('resize', () => { map.invalidateSize(); });
 
     await fetchAllDisasters();
 
@@ -27,20 +42,17 @@ async function initApp() {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(async () => {
             const zoom = map.getZoom();
-            const panel = document.getElementById('info-panel');
-            
-            if (zoom < 7) {
-                panel.innerHTML = `
+            if (zoom < 6) {
+                document.getElementById('info-panel').innerHTML = `
                     <div class="info-card low">
                         <h3>🌍 Global View</h3>
-                        <p>You are zoomed out. Zoom in to a specific country or region to see local safety conditions and active alerts.</p>
+                        <p>Zoom in to a specific region to see local safety conditions and active alerts.</p>
                     </div>`;
                 return;
             }
-
             const center = map.getCenter();
             await triggerAreaPrediction(center.lat, center.lng);
-        }, 800); 
+        }, 800);
     });
 
     const searchInput = document.getElementById('search-input');
@@ -52,10 +64,28 @@ async function initApp() {
 
     document.getElementById('season-filter').addEventListener('change', () => {
         renderMarkers();
-        if (map.getZoom() >= 7) {
+        if (map.getZoom() >= 6) {
             const center = map.getCenter();
             triggerAreaPrediction(center.lat, center.lng);
         }
+    });
+}
+
+function setupLanguageSelector() {
+    const langBtn = document.getElementById('lang-btn');
+    const langMenu = document.getElementById('lang-menu');
+    
+    langBtn.addEventListener('click', () => {
+        langMenu.classList.toggle('hidden');
+    });
+
+    document.querySelectorAll('.lang-option').forEach(option => {
+        option.addEventListener('click', (e) => {
+            const langCode = e.target.getAttribute('data-lang');
+            document.cookie = `googtrans=${langCode}; path=/; domain=${window.location.hostname}`;
+            document.cookie = `googtrans=${langCode}; path=/`; 
+            window.location.reload();
+        });
     });
 }
 
@@ -102,12 +132,10 @@ async function searchLocation(query) {
         const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
         const results = await res.json();
         if (results && results.length > 0) {
-            const { lat, lon, display_name } = results[0];
+            const { lat, lon } = results[0];
             map.flyTo([parseFloat(lat), parseFloat(lon)], 9);
         }
-    } catch (err) {
-        console.error("Geocoding failed", err);
-    }
+    } catch (err) { console.error("Geocoding failed", err); }
 }
 
 async function triggerAreaPrediction(lat, lon, knownPlaceName = null) {
@@ -122,17 +150,11 @@ async function triggerAreaPrediction(lat, lon, knownPlaceName = null) {
             const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10`);
             const geoData = await geoRes.json();
             if (geoData.error) {
-                panel.innerHTML = `
-                    <div class="info-card low">
-                        <h3>🌊 Uncharted Area / Ocean</h3>
-                        <p>No active alerts or historical data available for these coordinates.</p>
-                    </div>`;
+                panel.innerHTML = `<div class="info-card low"><h3>🌊 Uncharted Area</h3><p>No active alerts.</p></div>`;
                 return;
             }
-            placeName = geoData.name || geoData.address.city || geoData.address.town || geoData.address.country;
-        } catch (e) {
-            placeName = "Selected Area";
-        }
+            placeName = geoData.name || geoData.address.city || geoData.address.country;
+        } catch (e) { placeName = "Selected Area"; }
     }
 
     let url = `/api/v1/predict?lat=${lat}&lon=${lon}`;
@@ -141,33 +163,27 @@ async function triggerAreaPrediction(lat, lon, knownPlaceName = null) {
     try {
         const res = await fetch(url);
         const data = await res.json();
-        
         const bounds = map.getBounds();
-        let activeAlertsInView = 0;
+        let activeAlerts = 0;
+        
         if (geojsonLayer) {
             geojsonLayer.eachLayer(layer => {
-                if (bounds.contains(layer.getLatLng())) activeAlertsInView++;
+                if (bounds.contains(layer.getLatLng())) activeAlerts++;
             });
         }
-
-        if (data.predictions) {
-            updateSidebar(placeName, data.predictions, season || data.season, activeAlertsInView);
-        }
-    } catch (err) {
-        console.error("Prediction fetch failed", err);
-    }
+        if (data.predictions) updateSidebar(placeName, data.predictions, season || data.season, activeAlerts);
+    } catch (err) { console.error("Prediction fetch failed", err); }
 }
 
 function updateSidebar(locationTitle, predictions, season, activeAlertsCount) {
     const panel = document.getElementById('info-panel');
-    
     let highestRisk = predictions[0].risk_rating.toLowerCase();
     let cardStyle = activeAlertsCount > 0 ? "high" : (highestRisk === "high" ? "medium" : "low");
-    let listHtml = predictions.map(p => `<li>${p.disaster_type}: <strong>${p.probability_percentage}</strong> (${p.risk_rating})</li>`).join('');
+    let listHtml = predictions.map(p => `<li>${p.disaster_type}: <strong>${p.probability_percentage}</strong></li>`).join('');
 
     let alertStatus = activeAlertsCount > 0 
-        ? `<p style="color: #dc3545;"><strong>⚠️ ${activeAlertsCount} active alert(s) in this map view.</strong> Click the emojis on the map for details.</p>`
-        : `<p style="color: #28a745;"><strong>✅ No active disaster alerts reported in this immediate area right now.</strong></p>`;
+        ? `<p style="color: #dc3545;"><strong>⚠️ ${activeAlertsCount} active alert(s) in view.</strong></p>`
+        : `<p style="color: #28a745;"><strong>✅ No active alerts reported.</strong></p>`;
 
     panel.innerHTML = `
         <div class="info-card ${cardStyle}">
@@ -175,97 +191,22 @@ function updateSidebar(locationTitle, predictions, season, activeAlertsCount) {
             <p><strong>Season:</strong> ${season}</p>
             ${alertStatus}
             <hr style="border: 0; border-top: 1px solid #eee; margin: 12px 0;">
-            <h4>Historical Probability Forecast:</h4>
+            <h4>Historical Forecast:</h4>
             <ul>${listHtml}</ul>
         </div>
     `;
 }
 
 function displayDetails(props) {
-    const panel = document.getElementById('info-panel');
-    let html = `
+    document.getElementById('info-panel').innerHTML = `
         <div class="info-card ${(props.risk_level || 'medium').toLowerCase()}">
-            <h3>${props.locality || 'Incident Alert'}, ${props.region || props.country}</h3>
-            <p><strong>Primary Concern:</strong> ${props.emoji} ${props.disaster_type}</p>
+            <h3>${props.locality || 'Alert'}, ${props.region || props.country}</h3>
+            <p><strong>Concern:</strong> ${props.emoji} ${props.disaster_type}</p>
             <p><strong>Reason:</strong> ${props.primary_reason}</p>
-            <h4>Static Safety Tips:</h4>
-            <ul>${(props.static_safety_tips || []).map(t => `<li>${t}</li>`).join('')}</ul>
             <h4>Precautions:</h4>
-            <ul>${(props.dynamic_precautions || []).map(t => `<li><strong>Watch out:</strong> ${t}</li>`).join('')}</ul>
+            <ul>${(props.dynamic_precautions || []).map(t => `<li>${t}</li>`).join('')}</ul>
         </div>
     `;
-    panel.innerHTML = html;
 }
 
-async function initApp() {
-    const defaultCenter = [39.0, 22.0];
-    
-    const southWest = L.latLng(-90, -180);
-    const northEast = L.latLng(90, 180);
-    const bounds = L.latLngBounds(southWest, northEast);
-
-    map = L.map('map', {
-        center: defaultCenter,
-        zoom: 5,
-        minZoom: 3, 
-        maxBounds: bounds, 
-        maxBoundsViscosity: 1.0 
-    });
-        
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        attribution: '© OpenStreetMap contributors, © CARTO',
-        noWrap: true, 
-        bounds: bounds
-    }).addTo(map);
-
-    await fetchAllDisasters();
-
-    setTimeout(() => {
-        map.invalidateSize();
-    }, 500);
-
-    if ("geolocation" in navigator) {
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                map.setView([pos.coords.latitude, pos.coords.longitude], 8);
-                triggerAreaPrediction(pos.coords.latitude, pos.coords.longitude);
-            },
-            () => { triggerAreaPrediction(defaultCenter[0], defaultCenter[1]); }
-        );
-    }
-
-    map.on('moveend', () => {
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(async () => {
-            const zoom = map.getZoom();
-            const panel = document.getElementById('info-panel');
-            
-            if (zoom < 6) { 
-                panel.innerHTML = `
-                    <div class="info-card low">
-                        <h3>🌍 Global View</h3>
-                        <p>You are zoomed out. Zoom in to a specific country or region to see local safety conditions and active alerts.</p>
-                    </div>`;
-                return;
-            }
-
-            const center = map.getCenter();
-            await triggerAreaPrediction(center.lat, center.lng);
-        }, 800);
-    });
-
-    const searchInput = document.getElementById('search-input');
-    searchInput.addEventListener('keydown', async (e) => {
-        if (e.key === 'Enter' && searchInput.value.trim()) {
-            await searchLocation(searchInput.value.trim());
-        }
-    });
-
-    document.getElementById('season-filter').addEventListener('change', () => {
-        renderMarkers();
-        if (map.getZoom() >= 6) {
-            const center = map.getCenter();
-            triggerAreaPrediction(center.lat, center.lng);
-        }
-    });
-}
+initApp();
