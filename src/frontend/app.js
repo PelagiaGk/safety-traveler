@@ -99,11 +99,11 @@ function renderMarkers() {
     if (markersClusterGroup) {
         map.removeLayer(markersClusterGroup);
     }
-    
+
     markersClusterGroup = L.markerClusterGroup({
         maxClusterRadius: 55, 
         spiderfyOnMaxZoom: true,
-        disableClusteringAtZoom: 10,
+        disableClusteringAtZoom: 13, 
         iconCreateFunction: function(cluster) {
             const children = cluster.getAllChildMarkers();
             let highestRisk = 'low';
@@ -141,21 +141,27 @@ function renderMarkers() {
         return recordSeason.toLowerCase() === activeSeason.toLowerCase();
     });
 
-    const localityMap = new Map();
+    const gridMap = new Map();
     filteredRecords.forEach(record => {
-        const locality = record.locality || record.properties?.locality || "Unknown";
-        if (!localityMap.has(locality)) {
-            localityMap.set(locality, {
-                lat: record.latitude || record.geometry?.coordinates[1],
-                lon: record.longitude || record.geometry?.coordinates[0],
+        const lat = record.latitude || record.geometry?.coordinates[1];
+        const lon = record.longitude || record.geometry?.coordinates[0];
+        if (!lat || !lon) return;
+
+        const gridKey = `${parseFloat(lat).toFixed(2)}-${parseFloat(lon).toFixed(2)}`;
+
+        if (!gridMap.has(gridKey)) {
+            gridMap.set(gridKey, {
+                lat: lat,
+                lon: lon,
+                locality: record.locality || record.properties?.locality || "Unknown",
                 types: []
             });
         }
         const dtype = record.disaster_type || record.properties?.disaster_type;
-        if (dtype) localityMap.get(locality).types.push(dtype);
+        if (dtype) gridMap.get(gridKey).types.push(dtype);
     });
 
-    localityMap.forEach((data, locality) => {
+    gridMap.forEach((data, gridKey) => {
         if (!data.lat || !data.lon || data.types.length === 0) return;
 
         const counts = {};
@@ -199,11 +205,11 @@ function renderMarkers() {
             marker.on('click', () => {
                 isMarkerClick = true; 
                 displayDetails({
-                    locality: locality,
+                    locality: data.locality,
                     disaster_type: topThreat,
                     risk_level: risk,
                     emoji: emoji,
-                    primary_reason: `Historical probability of ${probability}% for ${topThreat} during ${activeSeason}.`,
+                    primary_reason: `Grid historical probability of ${probability}% for ${topThreat} during ${activeSeason}.`,
                     dynamic_precautions: ["Monitor local meteorological bulletins and regional safety warnings."]
                 }, data.lat, data.lon);
             });
