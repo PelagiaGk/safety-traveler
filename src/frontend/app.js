@@ -64,6 +64,15 @@ async function initApp() {
         }
     });
 
+    map.on('click', async (e) => {
+        if (isMarkerClick) return; 
+        
+        const lat = e.latlng.lat.toFixed(4);
+        const lon = e.latlng.lng.toFixed(4);
+        
+        await fetchAndDisplayDynamicPrediction(lat, lon, "Selected Map Sector");
+    });
+
     const searchInput = document.getElementById('search-box');
     if (searchInput) {
         searchInput.addEventListener('keypress', handleSearch);
@@ -244,7 +253,11 @@ async function handleSearch(event) {
                 const lat = parseFloat(data[0].lat);
                 const lon = parseFloat(data[0].lon);
                 
+                const locationName = data[0].display_name.split(',')[0];
+                
                 map.flyTo([lat, lon], 13, { duration: 1.5 });
+                
+                await fetchAndDisplayDynamicPrediction(lat, lon, locationName);
                 
             } else {
                 alert("Location not found. Please try a different search term.");
@@ -255,4 +268,48 @@ async function handleSearch(event) {
     }
 }
 
+async function fetchAndDisplayDynamicPrediction(lat, lon, locationName) {
+    const season = document.getElementById('season-filter').value || getCurrentSeason();
+    const panel = document.getElementById('info-panel');
+    
+    panel.innerHTML = '<div class="info-card low"><p style="color: #64748b;">📡 Analyzing live regional ML forecast...</p></div>';
+
+    try {
+        const url = `/api/v1/predict?lat=${lat}&lon=${lon}&region=Dynamic&season=${season}`;
+        const res = await fetch(url);
+        
+        if (res.ok) {
+            const data = await res.json();
+            if (data.predictions && data.predictions.length > 0) {
+                const topThreat = data.predictions[0];
+                const probability = parseInt(topThreat.probability_percentage);
+                let risk = probability >= 65 ? 'high' : (probability >= 40 ? 'medium' : 'low');
+                
+                const emojis = { "Wildfire": "🔥", "Flood": "🌊", "Storm": "🌪️", "Heatwave": "☀️", "Earthquake": "🌋", "Drought": "🏜️" };
+                const emoji = emojis[topThreat.disaster_type] || '⚠️';
+
+                displayDetails({
+                    locality: locationName,
+                    disaster_type: topThreat.disaster_type,
+                    risk_level: risk,
+                    emoji: emoji,
+                    primary_reason: `Live ML forecast indicates a ${probability}% probability for ${topThreat.disaster_type}.`,
+                    dynamic_precautions: ["Monitor local meteorological bulletins and regional safety warnings."]
+                }, lat, lon);
+                return;
+            }
+        }
+        
+        panel.innerHTML = `
+            <div class="info-card low">
+                <h3>📍 ${locationName}</h3>
+                <p style="color: #10b981;"><strong>✅ Low seasonal risk profile.</strong></p>
+                <p style="font-size: 13px;">No significant threats predicted for this sector during ${season}.</p>
+            </div>`;
+            
+    } catch (err) {
+        console.error("Dynamic prediction failed:", err);
+        panel.innerHTML = `<div class="info-card low"><h3>📍 ${locationName}</h3><p>Error retrieving prediction.</p></div>`;
+    }
+}
 document.addEventListener('DOMContentLoaded', initApp);
