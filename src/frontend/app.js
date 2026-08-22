@@ -1,9 +1,8 @@
 let map;
 let markersClusterGroup;
 let allDisasterData = [];
-let debounceTimer;
-let isMarkerClick = false;
 let dynamicSelectionMarker = null;
+let isMarkerClick = false;
 
 function getCurrentSeason() {
     const month = new Date().getMonth() + 1;
@@ -16,81 +15,47 @@ function getCurrentSeason() {
 async function fetchAllDisasters() {
     try {
         const res = await fetch('/api/v1/disasters');
-        if (res.ok) {
-            allDisasterData = await res.json();
-        }
+        if (res.ok) allDisasterData = await res.json();
     } catch (e) {
-        console.error("Failed to load disaster data. Is the backend running?", e);
+        console.error("Failed to load historical data.", e);
     }
 }
 
 async function initApp() {
-    const defaultCenter = [39.0, 22.0];
     const bounds = L.latLngBounds(L.latLng(-90, -180), L.latLng(90, 180));
-
-    map = L.map('map', {
-        center: defaultCenter,
-        zoom: 5,
-        minZoom: 3,
-        maxBounds: bounds,
-        maxBoundsViscosity: 1.0
-    });
+    map = L.map('map', { center: [39.0, 22.0], zoom: 5, minZoom: 3, maxBounds: bounds });
 
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        attribution: '© OpenStreetMap, © CARTO',
-        noWrap: true,
-        bounds: bounds
+        attribution: '© OpenStreetMap, © CARTO', noWrap: true, bounds: bounds
     }).addTo(map);
 
     await fetchAllDisasters();
     renderMarkers();
 
     document.getElementById('season-filter').addEventListener('change', () => {
+        if (dynamicSelectionMarker) { map.removeLayer(dynamicSelectionMarker); dynamicSelectionMarker = null; }
         renderMarkers();
     });
 
-    map.on('moveend', () => {
-        if (isMarkerClick) {
-            isMarkerClick = false;
-            return;
-        }
-        
-        const zoom = map.getZoom();
-        if (zoom < 6) {
-            document.getElementById('info-panel').innerHTML = `
-                <div class="info-card low">
-                    <h3>🌍 Global View</h3>
-                    <p>Select a region or marker to view detailed local forecasts.</p>
-                </div>`;
-        }
-    });
-
     map.on('click', async (e) => {
-        if (isMarkerClick) return; 
+        if (isMarkerClick) { isMarkerClick = false; return; }
         
         const lat = e.latlng.lat.toFixed(4);
         const lon = e.latlng.lng.toFixed(4);
-        
         document.getElementById('info-panel').innerHTML = '<div class="info-card low"><p style="color: #64748b;">🌍 Identifying location...</p></div>';
 
         try {
             const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
             const geoData = await geoRes.json();
-            
-            const locationName = geoData.address ? 
-                (geoData.address.city || geoData.address.town || geoData.address.village || geoData.address.municipality || "Unknown Region") 
-                : "Regional Sector";
-
+            const locationName = geoData.address ? (geoData.address.city || geoData.address.town || geoData.address.village || "Unknown Region") : "Regional Sector";
             await fetchAndDisplayDynamicPrediction(lat, lon, locationName);
         } catch (err) {
             await fetchAndDisplayDynamicPrediction(lat, lon, "Regional Sector");
         }
     });
 
-    const searchInput = document.getElementById('search-box');
-    if (searchInput) {
-        searchInput.addEventListener('keypress', handleSearch);
-    }
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) searchInput.addEventListener('keypress', handleSearch);
 }
 
 function renderMarkers() {
@@ -98,8 +63,8 @@ function renderMarkers() {
 
     markersClusterGroup = L.markerClusterGroup({
         maxClusterRadius: 50, 
-        spiderfyOnMaxZoom: false,
-        disableClusteringAtZoom: 10,
+        spiderfyOnMaxZoom: true,
+        disableClusteringAtZoom: 12, 
         iconCreateFunction: function(cluster) {
             const children = cluster.getAllChildMarkers();
             let highestRisk = 'low';
@@ -110,46 +75,42 @@ function renderMarkers() {
             children.forEach(marker => {
                 const r = marker.options.customRisk || 'low';
                 const score = riskScores[r] || 1;
-                if (score > maxScore) {
-                    maxScore = score;
-                    highestRisk = r;
-                    dominantEmoji = marker.options.customEmoji || '⚠️';
-                }
+                if (score > maxScore) { maxScore = score; highestRisk = r; dominantEmoji = marker.options.customEmoji; }
             });
 
-            const borderColor = highestRisk === 'high' ? '#ef4444' : highestRisk === 'medium' ? '#f59e0b' : '#10b981';
-            
+            const borderColor = highestRisk === 'high' ? '#ff0000' : highestRisk === 'medium' ? '#ffa200' : '#00ffaa';
             return L.divIcon({
                 html: `<div style="width: 38px; height: 38px; font-size: 20px; display: flex; align-items: center; justify-content: center; background: white; border-radius: 50%; border: 3px solid ${borderColor}; position: relative; box-shadow: 0 2px 6px rgba(0,0,0,0.25);">
                           ${dominantEmoji}
                           <span style="position: absolute; top: -6px; right: -6px; background: #334155; color: white; border-radius: 50%; font-size: 11px; font-weight: bold; padding: 2px 5px; border: 2px solid white;">${children.length}</span>
                        </div>`,
-                className: 'custom-cluster-wrap', 
-                iconSize: [38, 38],
-                iconAnchor: [19, 19]
+                className: 'custom-cluster-wrap', iconSize: [38, 38], iconAnchor: [19, 19]
             });
         }
     });
 
-    let safeDataArray = [];
-    if (Array.isArray(allDisasterData)) {
-        safeDataArray = allDisasterData;
-    } else if (allDisasterData && Array.isArray(allDisasterData.features)) {
-        safeDataArray = allDisasterData.features; 
-    } else if (allDisasterData && Array.isArray(allDisasterData.data)) {
-        safeDataArray = allDisasterData.data; 
-    } else {
-        console.error("Could not find the data array. API returned:", allDisasterData);
-        return; 
-    }
+    let safeDataArray = Array.isArray(allDisasterData) ? allDisasterData : (allDisasterData.features || allDisasterData.data || []);
+    const activeSeason = (document.getElementById('season-filter').value || getCurrentSeason()).toLowerCase();
+    const filteredRecords = safeDataArray.filter(r => (r.season || r.properties?.season || '').toLowerCase() === activeSeason);
 
-    const dropdownValue = document.getElementById('season-filter').value;
-    const activeSeason = dropdownValue === "" ? getCurrentSeason() : dropdownValue;
-    
-    const filteredRecords = safeDataArray.filter(record => {
-        const recordSeason = record.season || record.properties?.season || '';
-        return recordSeason.toLowerCase() === activeSeason.toLowerCase();
+    const localityStats = {};
+    filteredRecords.forEach(record => {
+        const loc = record.locality || record.properties?.locality || "Unknown";
+        if (!localityStats[loc]) localityStats[loc] = { types: [], counts: {} };
+        const type = record.disaster_type || record.properties?.disaster_type;
+        localityStats[loc].types.push(type);
+        localityStats[loc].counts[type] = (localityStats[loc].counts[type] || 0) + 1;
     });
+
+    for (const loc in localityStats) {
+        let maxCount = 0;
+        let topThreat = "";
+        for (const [t, c] of Object.entries(localityStats[loc].counts)) {
+            if (c > maxCount) { maxCount = c; topThreat = t; }
+        }
+        localityStats[loc].probability = Math.round((maxCount / localityStats[loc].types.length) * 100);
+        localityStats[loc].topThreat = topThreat;
+    }
 
     const gridMap = new Map();
     filteredRecords.forEach(record => {
@@ -157,146 +118,48 @@ function renderMarkers() {
         const lon = record.longitude || record.geometry?.coordinates[0];
         if (!lat || !lon) return;
 
-        const gridKey = `${parseFloat(lat).toFixed(1)}-${parseFloat(lon).toFixed(1)}`;
-
+        const gridKey = `${parseFloat(lat).toFixed(2)}-${parseFloat(lon).toFixed(2)}`;
         if (!gridMap.has(gridKey)) {
-            gridMap.set(gridKey, {
-                lat: parseFloat(lat),
-                lon: parseFloat(lon),
-                locality: record.locality || record.properties?.locality || "Regional Sector",
-                types: []
-            });
+            gridMap.set(gridKey, { lat: parseFloat(lat), lon: parseFloat(lon), locality: record.locality || record.properties?.locality || "Unknown" });
         }
-        const dtype = record.disaster_type || record.properties?.disaster_type;
-        if (dtype) gridMap.get(gridKey).types.push(dtype);
     });
 
-    gridMap.forEach((data, gridKey) => {
-        if (data.types.length === 0) return;
+    gridMap.forEach((data) => {
+        const stats = localityStats[data.locality];
+        if (!stats || stats.probability < 30) return;
 
-        const counts = {};
-        data.types.forEach(t => counts[t] = (counts[t] || 0) + 1);
+        let risk = stats.probability >= 65 ? 'high' : (stats.probability >= 40 ? 'medium' : 'low');
+        const emojis = { "Wildfire": "🔥", "Flood": "🌊", "Storm": "🌪️", "Heatwave": "☀️", "Earthquake": "🌋", "Drought": "🏜️" };
+        const emoji = emojis[stats.topThreat] || '⚠️';
+        const borderColor = risk === 'high' ? '#ff0000' : risk === 'medium' ? '#ffa200' : '#00ffaa';
 
-        let topThreat = "";
-        let maxCount = 0;
-        for (const [t, count] of Object.entries(counts)) {
-            if (count > maxCount) {
-                maxCount = count;
-                topThreat = t;
-            }
-        }
+        const icon = L.divIcon({
+            html: `<div style="background: white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 16px; border: 3px solid ${borderColor}; box-shadow: 0 2px 5px rgba(0,0,0,0.15); cursor: pointer;">${emoji}</div>`,
+            className: '', iconSize: [28, 28], iconAnchor: [14, 14]
+        });
 
-        const probability = Math.round((maxCount / data.types.length) * 100);
-
-        if (probability >= 30) {
-            let risk = 'low'; 
-            if (probability >= 65) risk = 'high'; 
-            else if (probability >= 40) risk = 'medium'; 
-
-            const emojis = { "Wildfire": "🔥", "Flood": "🌊", "Storm": "🌪️", "Heatwave": "☀️", "Earthquake": "🌋", "Drought": "🏜️" };
-            const emoji = emojis[topThreat] || '⚠️';
-            const borderColor = risk === 'high' ? '#ef4444' : risk === 'medium' ? '#f59e0b' : '#10b981';
-
-            const icon = L.divIcon({
-                html: `<div style="background: white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 16px; border: 3px solid ${borderColor}; box-shadow: 0 2px 5px rgba(0,0,0,0.15); cursor: pointer;" title="Seasonal Risk: ${probability}% ${topThreat}">${emoji}</div>`,
-                className: '',
-                iconSize: [28, 28],
-                iconAnchor: [14, 14]
-            });
-
-            const marker = L.marker([data.lat, data.lon], { 
-                icon: icon,
-                customRisk: risk,
-                customEmoji: emoji
-            });
-            
-            marker.on('click', () => {
-                isMarkerClick = true;
-                
-                map.flyTo([data.lat, data.lon], 14, { duration: 1.2 });
-                
-                displayDetails({
-                    locality: data.locality,
-                    disaster_type: topThreat,
-                    risk_level: risk,
-                    emoji: emoji,
-                    primary_reason: `Historical probability of ${probability}% for ${topThreat} in this sector during ${activeSeason}.`,
-                    dynamic_precautions: ["Monitor local meteorological bulletins and regional safety warnings."]
-                }, data.lat, data.lon);
-            });
-
-            markersClusterGroup.addLayer(marker);
-        }
+        const marker = L.marker([data.lat, data.lon], { icon: icon, customRisk: risk, customEmoji: emoji });
+        
+        marker.on('click', () => {
+            isMarkerClick = true;
+            map.flyTo([data.lat, data.lon], 14, { duration: 1.2 });
+            fetchAndDisplayDynamicPrediction(data.lat, data.lon, data.locality);
+        });
+        markersClusterGroup.addLayer(marker);
     });
 
     map.addLayer(markersClusterGroup);
 }
 
-async function displayDetails(props, lat, lon) {
-    const panel = document.getElementById('info-panel');
-    const season = document.getElementById('season-filter').value || "Current";
-    
-    panel.innerHTML = `
-        <div class="info-card ${props.risk_level}">
-            <h3>📍 ${props.locality}</h3>
-            <p><strong>Season:</strong> ${season}</p>
-            <p style="color: ${props.risk_level === 'high' ? '#dc3545' : props.risk_level === 'medium' ? '#d97706' : '#28a745'};">
-                <strong>⚠️ Seasonal Advisory: ${props.risk_level.charAt(0).toUpperCase() + props.risk_level.slice(1)} probability of ${props.disaster_type}.</strong>
-            </p>
-            <div style="margin-top: 15px; background: #fff5f5; padding: 12px; border-radius: 6px; border: 1px solid #ffc9c9;">
-                <p style="margin: 0 0 8px 0; font-size: 13px;"><strong>Reason:</strong> ${props.primary_reason}</p>
-                <p style="margin: 0 0 4px 0; font-size: 12px; font-weight: bold; text-transform: uppercase;">Precautions:</p>
-                <ul style="padding-left: 18px; margin: 0; font-size: 13px;">
-                    ${props.dynamic_precautions.map(t => `<li>${t}</li>`).join('')}
-                </ul>
-            </div>
-        </div>
-    `;
-}
-
-async function handleSearch(event) {
-    if (event.key === 'Enter') {
-        const query = event.target.value.trim();
-        if (!query) return;
-
-        try {
-            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
-            const data = await res.json();
-
-            if (data && data.length > 0) {
-                const lat = parseFloat(data[0].lat);
-                const lon = parseFloat(data[0].lon);
-                
-                const locationName = data[0].display_name.split(',')[0];
-                
-                map.flyTo([lat, lon], 13, { duration: 1.5 });
-                
-                await fetchAndDisplayDynamicPrediction(lat, lon, locationName);
-                
-            } else {
-                alert("Location not found. Please try a different search term.");
-            }
-        } catch (err) {
-            console.error("Search failed:", err);
-        }
-    }
-}
-
 async function fetchAndDisplayDynamicPrediction(lat, lon, locationName) {
     const season = document.getElementById('season-filter').value || getCurrentSeason();
     const panel = document.getElementById('info-panel');
-    
     panel.innerHTML = '<div class="info-card low"><p style="color: #64748b;">📡 Analyzing live regional ML forecast...</p></div>';
 
-    if (dynamicSelectionMarker) {
-        map.removeLayer(dynamicSelectionMarker);
-        dynamicSelectionMarker = null;
-    }
+    if (dynamicSelectionMarker) { map.removeLayer(dynamicSelectionMarker); dynamicSelectionMarker = null; }
 
     try {
-        const url = `/api/v1/predict?lat=${lat}&lon=${lon}&region=Dynamic&season=${season}`;
-        const res = await fetch(url);
-        
+        const res = await fetch(`/api/v1/predict?lat=${lat}&lon=${lon}&region=Dynamic&season=${season}`);
         if (res.ok) {
             const data = await res.json();
             if (data.predictions && data.predictions.length > 0) {
@@ -306,40 +169,61 @@ async function fetchAndDisplayDynamicPrediction(lat, lon, locationName) {
                 
                 const emojis = { "Wildfire": "🔥", "Flood": "🌊", "Storm": "🌪️", "Heatwave": "☀️", "Earthquake": "🌋", "Drought": "🏜️" };
                 const emoji = emojis[topThreat.disaster_type] || '⚠️';
-                const borderColor = risk === 'high' ? '#ef4444' : risk === 'medium' ? '#f59e0b' : '#10b981';
+                const borderColor = risk === 'high' ? '#ff0000' : risk === 'medium' ? '#ffa200' : '#00ffaa';
 
                 const icon = L.divIcon({
                     html: `<div style="background: white; border-radius: 50%; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; font-size: 18px; border: 4px solid ${borderColor}; box-shadow: 0 4px 8px rgba(0,0,0,0.4); z-index: 1000;" title="Live Forecast: ${probability}% ${topThreat.disaster_type}">${emoji}</div>`,
-                    className: '',
-                    iconSize: [34, 34],
-                    iconAnchor: [17, 17]
+                    className: '', iconSize: [34, 34], iconAnchor: [17, 17]
                 });
-
                 dynamicSelectionMarker = L.marker([lat, lon], { icon: icon, zIndexOffset: 1000 }).addTo(map);
 
                 displayDetails({
-                    locality: locationName,
-                    disaster_type: topThreat.disaster_type,
-                    risk_level: risk,
-                    emoji: emoji,
+                    locality: locationName, disaster_type: topThreat.disaster_type, risk_level: risk, emoji: emoji,
                     primary_reason: `Live ML forecast indicates a ${probability}% probability for ${topThreat.disaster_type}.`,
                     dynamic_precautions: ["Monitor local meteorological bulletins and regional safety warnings."]
                 }, lat, lon);
                 return;
             }
         }
-        
-        panel.innerHTML = `
-            <div class="info-card low">
-                <h3>📍 ${locationName}</h3>
-                <p style="color: #10b981;"><strong>✅ Low seasonal risk profile.</strong></p>
-                <p style="font-size: 13px;">No significant threats predicted for this sector during ${season}.</p>
-            </div>`;
-            
+        panel.innerHTML = `<div class="info-card low"><h3>📍 ${locationName}</h3><p style="color: #00ffaa;"><strong>✅ Low seasonal risk profile.</strong></p></div>`;
     } catch (err) {
-        console.error("Dynamic prediction failed:", err);
         panel.innerHTML = `<div class="info-card low"><h3>📍 ${locationName}</h3><p>Error retrieving prediction.</p></div>`;
     }
+}
+
+async function handleSearch(event) {
+    if (event.key === 'Enter') {
+        const query = event.target.value.trim();
+        if (!query) return;
+        try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
+            const data = await res.json();
+            if (data && data.length > 0) {
+                const lat = parseFloat(data[0].lat);
+                const lon = parseFloat(data[0].lon);
+                const locationName = data[0].display_name.split(',')[0];
+                map.flyTo([lat, lon], 13, { duration: 1.5 });
+                await fetchAndDisplayDynamicPrediction(lat, lon, locationName);
+            }
+        } catch (err) { console.error("Search failed"); }
+    }
+}
+
+function displayDetails(props) {
+    const season = document.getElementById('season-filter').value || getCurrentSeason();
+    document.getElementById('info-panel').innerHTML = `
+        <div class="info-card ${props.risk_level}">
+            <h3>📍 ${props.locality}</h3>
+            <p><strong>Season:</strong> ${season}</p>
+            <p style="color: ${props.risk_level === 'high' ? '#ff0019' : props.risk_level === 'medium' ? '#ff8800' : '#00ff3c'};">
+                <strong>⚠️ Seasonal Advisory: ${props.risk_level.charAt(0).toUpperCase() + props.risk_level.slice(1)} probability of ${props.disaster_type}.</strong>
+            </p>
+            <div style="margin-top: 15px; background: #fff5f5; padding: 12px; border-radius: 6px; border: 1px solid #ffc9c9;">
+                <p style="margin: 0 0 8px 0; font-size: 13px;"><strong>Reason:</strong> ${props.primary_reason}</p>
+                <p style="margin: 0 0 4px 0; font-size: 12px; font-weight: bold; text-transform: uppercase;">Precautions:</p>
+                <ul style="padding-left: 18px; margin: 0; font-size: 13px;">${props.dynamic_precautions.map(t => `<li>${t}</li>`).join('')}</ul>
+            </div>
+        </div>`;
 }
 
 document.addEventListener('DOMContentLoaded', initApp);
