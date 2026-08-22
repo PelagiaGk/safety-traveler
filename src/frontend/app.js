@@ -99,11 +99,11 @@ function renderMarkers() {
     if (markersClusterGroup) {
         map.removeLayer(markersClusterGroup);
     }
-
+    
     markersClusterGroup = L.markerClusterGroup({
         maxClusterRadius: 55, 
         spiderfyOnMaxZoom: true,
-        disableClusteringAtZoom: 10, 
+        disableClusteringAtZoom: 10,
         iconCreateFunction: function(cluster) {
             const children = cluster.getAllChildMarkers();
             let highestRisk = 'low';
@@ -122,13 +122,13 @@ function renderMarkers() {
             });
 
             return L.divIcon({
-                html: `<div class="emoji-marker risk-${highestRisk}" style="width: 34px; height: 34px; font-size: 18px; position: relative;">
+                html: `<div class="cluster-emoji-badge risk-${highestRisk}" style="width: 38px; height: 38px; font-size: 20px;">
                           ${dominantEmoji}
-                          <div style="position: absolute; top: -6px; right: -6px; background: #475569; color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white;">${children.length}</div>
+                          <span class="cluster-count">${children.length}</span>
                        </div>`,
-                className: '',
-                iconSize: [34, 34],
-                iconAnchor: [17, 17]
+                className: 'custom-cluster-wrap', 
+                iconSize: [38, 38],
+                iconAnchor: [19, 19]
             });
         }
     });
