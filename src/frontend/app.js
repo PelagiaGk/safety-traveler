@@ -25,8 +25,8 @@ async function initApp() {
         maxBoundsViscosity: 1.0
     });
 
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
-        attribution: 'Tiles © Esri',
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '© OpenStreetMap contributors, © CARTO',
         noWrap: true,
         bounds: bounds
     }).addTo(map);
@@ -101,9 +101,36 @@ function renderMarkers() {
     }
 
     markersClusterGroup = L.markerClusterGroup({
-        maxClusterRadius: 40, 
+        maxClusterRadius: 55, 
         spiderfyOnMaxZoom: true,
-        disableClusteringAtZoom: 15
+        disableClusteringAtZoom: 10, 
+        iconCreateFunction: function(cluster) {
+            const children = cluster.getAllChildMarkers();
+            let highestRisk = 'low';
+            let dominantEmoji = '⚠️';
+            let maxScore = 0;
+            const riskScores = { 'low': 1, 'medium': 2, 'high': 3 };
+            
+            children.forEach(marker => {
+                const r = marker.options.customRisk || 'low';
+                const score = riskScores[r] || 1;
+                if (score > maxScore) {
+                    maxScore = score;
+                    highestRisk = r;
+                    dominantEmoji = marker.options.customEmoji || '⚠️';
+                }
+            });
+
+            return L.divIcon({
+                html: `<div class="emoji-marker risk-${highestRisk}" style="width: 34px; height: 34px; font-size: 18px; position: relative;">
+                          ${dominantEmoji}
+                          <div style="position: absolute; top: -6px; right: -6px; background: #475569; color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white;">${children.length}</div>
+                       </div>`,
+                className: '',
+                iconSize: [34, 34],
+                iconAnchor: [17, 17]
+            });
+        }
     });
 
     const dropdownValue = document.getElementById('season-filter').value;
@@ -148,7 +175,7 @@ function renderMarkers() {
         if (probability >= 30) {
             let risk = 'low'; 
             if (probability >= 65) {
-                risk = 'high';
+                risk = 'high'; 
             } else if (probability >= 40) {
                 risk = 'medium'; 
             }
@@ -163,7 +190,11 @@ function renderMarkers() {
                 iconAnchor: [14, 14]
             });
 
-            const marker = L.marker([data.lat, data.lon], { icon: icon });
+            const marker = L.marker([data.lat, data.lon], { 
+                icon: icon,
+                customRisk: risk,
+                customEmoji: emoji
+            });
             
             marker.on('click', () => {
                 isMarkerClick = true; 
