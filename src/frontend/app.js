@@ -3,6 +3,7 @@ let markersClusterGroup;
 let allDisasterData = [];
 let debounceTimer;
 let isMarkerClick = false;
+let dynamicSelectionMarker = null;
 
 function getCurrentSeason() {
     const month = new Date().getMonth() + 1;
@@ -70,7 +71,20 @@ async function initApp() {
         const lat = e.latlng.lat.toFixed(4);
         const lon = e.latlng.lng.toFixed(4);
         
-        await fetchAndDisplayDynamicPrediction(lat, lon, "Selected Map Sector");
+        document.getElementById('info-panel').innerHTML = '<div class="info-card low"><p style="color: #64748b;">🌍 Identifying location...</p></div>';
+
+        try {
+            const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+            const geoData = await geoRes.json();
+            
+            const locationName = geoData.address ? 
+                (geoData.address.city || geoData.address.town || geoData.address.village || geoData.address.municipality || "Unknown Region") 
+                : "Regional Sector";
+
+            await fetchAndDisplayDynamicPrediction(lat, lon, locationName);
+        } catch (err) {
+            await fetchAndDisplayDynamicPrediction(lat, lon, "Regional Sector");
+        }
     });
 
     const searchInput = document.getElementById('search-box');
@@ -274,6 +288,11 @@ async function fetchAndDisplayDynamicPrediction(lat, lon, locationName) {
     
     panel.innerHTML = '<div class="info-card low"><p style="color: #64748b;">📡 Analyzing live regional ML forecast...</p></div>';
 
+    if (dynamicSelectionMarker) {
+        map.removeLayer(dynamicSelectionMarker);
+        dynamicSelectionMarker = null;
+    }
+
     try {
         const url = `/api/v1/predict?lat=${lat}&lon=${lon}&region=Dynamic&season=${season}`;
         const res = await fetch(url);
@@ -287,6 +306,16 @@ async function fetchAndDisplayDynamicPrediction(lat, lon, locationName) {
                 
                 const emojis = { "Wildfire": "🔥", "Flood": "🌊", "Storm": "🌪️", "Heatwave": "☀️", "Earthquake": "🌋", "Drought": "🏜️" };
                 const emoji = emojis[topThreat.disaster_type] || '⚠️';
+                const borderColor = risk === 'high' ? '#ef4444' : risk === 'medium' ? '#f59e0b' : '#10b981';
+
+                const icon = L.divIcon({
+                    html: `<div style="background: white; border-radius: 50%; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; font-size: 18px; border: 4px solid ${borderColor}; box-shadow: 0 4px 8px rgba(0,0,0,0.4); z-index: 1000;" title="Live Forecast: ${probability}% ${topThreat.disaster_type}">${emoji}</div>`,
+                    className: '',
+                    iconSize: [34, 34],
+                    iconAnchor: [17, 17]
+                });
+
+                dynamicSelectionMarker = L.marker([lat, lon], { icon: icon, zIndexOffset: 1000 }).addTo(map);
 
                 displayDetails({
                     locality: locationName,
@@ -312,4 +341,5 @@ async function fetchAndDisplayDynamicPrediction(lat, lon, locationName) {
         panel.innerHTML = `<div class="info-card low"><h3>📍 ${locationName}</h3><p>Error retrieving prediction.</p></div>`;
     }
 }
+
 document.addEventListener('DOMContentLoaded', initApp);
