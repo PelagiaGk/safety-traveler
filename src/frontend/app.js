@@ -77,25 +77,37 @@ async function scanCurrentMapArea() {
     const bounds = map.getBounds();
     const season = document.getElementById('season-filter').value || getCurrentSeason();
     
-    const latStep = (bounds.getNorth() - bounds.getSouth()) / 4;
-    const lonStep = (bounds.getEast() - bounds.getWest()) / 4;
+    const latStep = (bounds.getNorth() - bounds.getSouth()) / 2;
+    const lonStep = (bounds.getEast() - bounds.getWest()) / 2;
 
-    document.getElementById('info-panel').innerHTML = '<div class="info-card low"><p style="color: #64748b;">📡 Scanning regional ML forecasts...</p></div>';
+    const panel = document.getElementById('info-panel');
+    if (!panel.innerHTML.includes("Active Alert") && !panel.innerHTML.includes("Seasonal Advisory")) {
+        panel.innerHTML = '<div class="info-card low"><p style="color: #64748b;">📡 Scanning regional ML forecasts...</p></div>';
+    }
 
-    const fetchPromises = [];
-    for (let i = 0; i <= 4; i++) {
-        for (let j = 0; j <= 4; j++) {
+    const results = [];
+    
+    for (let i = 0; i <= 2; i++) {
+        for (let j = 0; j <= 2; j++) {
             const lat = (bounds.getSouth() + (i * latStep)).toFixed(4);
             const lon = (bounds.getWest() + (j * lonStep)).toFixed(4);
-            const url = `/api/v1/predict?lat=${lat}&lon=${lon}&season=${season}`;
             
-            fetchPromises.push(
-                fetch(url).then(res => res.json()).then(data => ({ lat, lon, data })).catch(() => null)
-            );
+            const url = `/api/v1/predict?lat=${lat}&lon=${lon}&region=GridSector&season=${season}`;
+            
+            try {
+                const res = await fetch(url);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.predictions && data.predictions.length > 0) {
+                        results.push({ lat, lon, data });
+                    }
+                }
+            } catch (err) {
+                console.warn("Grid scan point failed:", err);
+            }
         }
     }
 
-    const results = (await Promise.all(fetchPromises)).filter(r => r && r.data && r.data.predictions);
     renderDynamicMarkers(results, season);
 }
 
@@ -146,15 +158,17 @@ function renderDynamicMarkers(gridResults, activeSeason) {
             const marker = L.marker([cell.lat, cell.lon], { icon: icon, customRisk: risk, customEmoji: emoji });
             
             marker.on('click', () => {
-                isMarkerClick = true;
+                isMarkerClick = true; 
+                
                 map.flyTo([cell.lat, cell.lon], 14, { duration: 1.2 });
+                
                 displayDetails({
                     locality: "Regional Sector",
                     disaster_type: topThreatData.disaster_type,
                     risk_level: risk,
                     emoji: emoji,
                     primary_reason: `Live ML forecast indicates a ${probability}% probability for ${topThreatData.disaster_type}.`,
-                    dynamic_precautions: ["Monitor local safety warnings."]
+                    dynamic_precautions: ["Monitor local meteorological bulletins and regional safety warnings."]
                 }, cell.lat, cell.lon);
             });
 
