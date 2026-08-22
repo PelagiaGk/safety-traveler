@@ -132,7 +132,6 @@ function renderMarkers() {
         if (!data.lat || !data.lon || data.types.length === 0) return;
 
         const counts = {};
-        data.types.length
         data.types.forEach(t => counts[t] = (counts[t] || 0) + 1);
 
         let topThreat = "";
@@ -149,9 +148,9 @@ function renderMarkers() {
         if (probability >= 30) {
             let risk = 'low'; 
             if (probability >= 65) {
-                risk = 'high';      
+                risk = 'high';
             } else if (probability >= 40) {
-                risk = 'medium';    
+                risk = 'medium'; 
             }
 
             const emojis = { "Wildfire": "🔥", "Flood": "🌊", "Storm": "🌪️", "Heatwave": "☀️", "Earthquake": "🌋", "Drought": "🏜️" };
@@ -173,7 +172,7 @@ function renderMarkers() {
                     disaster_type: topThreat,
                     risk_level: risk,
                     emoji: emoji,
-                    primary_reason: `Seasonal historical probability of ${probability}% for ${topThreat} during ${activeSeason}.`,
+                    primary_reason: `Historical probability of ${probability}% for ${topThreat} during ${activeSeason}.`,
                     dynamic_precautions: ["Monitor local meteorological bulletins and regional safety warnings."]
                 }, data.lat, data.lon);
             });
