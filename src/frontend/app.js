@@ -51,22 +51,11 @@ async function initApp() {
             isMarkerClick = false; 
             return; 
         }
-        
         clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(async () => {
-            const zoom = map.getZoom();
-            if (zoom < 6) {
-                document.getElementById('info-panel').innerHTML = `
-                    <div class="info-card low">
-                        <h3>🌍 Global View</h3>
-                        <p>Zoom in to a specific region to see local safety conditions and active alerts.</p>
-                    </div>`;
-                return;
-            }
-            const center = map.getCenter();
-            await triggerAreaPrediction(center.lat, center.lng);
-        }, 800);
+        debounceTimer = setTimeout(() => { scanCurrentMapArea(); }, 800);
     });
+
+    scanCurrentMapArea();
 
     const searchInput = document.getElementById('search-input');
     searchInput.addEventListener('keydown', async (e) => {
@@ -84,120 +73,89 @@ async function initApp() {
     });
 }
 
-async function fetchAllDisasters() {
-    try {
-        const res = await fetch('/api/v1/disasters');
-        const data = await res.json();
-        allDisasterData = data.features || [];
-        renderMarkers();
-    } catch (err) {
-        console.error("Failed to load disaster data", err);
+async function scanCurrentMapArea() {
+    const bounds = map.getBounds();
+    const season = document.getElementById('season-filter').value || getCurrentSeason();
+    
+    const latStep = (bounds.getNorth() - bounds.getSouth()) / 4;
+    const lonStep = (bounds.getEast() - bounds.getWest()) / 4;
+
+    document.getElementById('info-panel').innerHTML = '<div class="info-card low"><p style="color: #64748b;">📡 Scanning regional ML forecasts...</p></div>';
+
+    const fetchPromises = [];
+    for (let i = 0; i <= 4; i++) {
+        for (let j = 0; j <= 4; j++) {
+            const lat = (bounds.getSouth() + (i * latStep)).toFixed(4);
+            const lon = (bounds.getWest() + (j * lonStep)).toFixed(4);
+            const url = `/api/v1/predict?lat=${lat}&lon=${lon}&season=${season}`;
+            
+            fetchPromises.push(
+                fetch(url).then(res => res.json()).then(data => ({ lat, lon, data })).catch(() => null)
+            );
+        }
     }
+
+    const results = (await Promise.all(fetchPromises)).filter(r => r && r.data && r.data.predictions);
+    renderDynamicMarkers(results, season);
 }
 
-function renderMarkers() {
-    if (markersClusterGroup) {
-        map.removeLayer(markersClusterGroup);
-    }
+function renderDynamicMarkers(gridResults, activeSeason) {
+    if (markersClusterGroup) map.removeLayer(markersClusterGroup);
 
     markersClusterGroup = L.markerClusterGroup({
         maxClusterRadius: 50, 
-        spiderfyOnMaxZoom: false, 
+        spiderfyOnMaxZoom: false,
         disableClusteringAtZoom: 10,
         iconCreateFunction: function(cluster) {
             const children = cluster.getAllChildMarkers();
             let highestRisk = 'low';
             let dominantEmoji = '⚠️';
-            let maxScore = 0;
             const riskScores = { 'low': 1, 'medium': 2, 'high': 3 };
             
-            children.forEach(marker => {
-                const r = marker.options.customRisk || 'low';
-                const score = riskScores[r] || 1;
-                if (score > maxScore) {
-                    maxScore = score;
-                    highestRisk = r;
-                    dominantEmoji = marker.options.customEmoji || '⚠️';
+            children.forEach(m => {
+                if (riskScores[m.options.customRisk] > (riskScores[highestRisk] || 0)) {
+                    highestRisk = m.options.customRisk;
+                    dominantEmoji = m.options.customEmoji;
                 }
             });
 
             return L.divIcon({
                 html: `<div class="cluster-emoji-badge risk-${highestRisk}" style="width: 38px; height: 38px; font-size: 20px;">
-                          ${dominantEmoji}
-                          <span class="cluster-count">${children.length}</span>
+                          ${dominantEmoji}<span class="cluster-count">${children.length}</span>
                        </div>`,
-                className: 'custom-cluster-wrap', 
-                iconSize: [38, 38],
-                iconAnchor: [19, 19]
+                className: 'custom-cluster-wrap', iconSize: [38, 38], iconAnchor: [19, 19]
             });
         }
     });
 
-    const dropdownValue = document.getElementById('season-filter').value;
-    const activeSeason = dropdownValue === "" ? getCurrentSeason() : dropdownValue;
-    
-    const filteredRecords = allDisasterData.filter(record => {
-        const recordSeason = record.season || record.properties?.season || '';
-        return recordSeason.toLowerCase() === activeSeason.toLowerCase();
-    });
+    gridResults.forEach(cell => {
+        const topThreatData = cell.data.predictions[0];
+        if (!topThreatData) return;
 
-    const localityMap = new Map();
-    filteredRecords.forEach(record => {
-        const locality = record.locality || record.properties?.locality || "Unknown";
-        if (!localityMap.has(locality)) {
-            localityMap.set(locality, {
-                lat: record.latitude || record.geometry?.coordinates[1],
-                lon: record.longitude || record.geometry?.coordinates[0],
-                types: []
-            });
-        }
-        const dtype = record.disaster_type || record.properties?.disaster_type;
-        if (dtype) localityMap.get(locality).types.push(dtype);
-    });
-
-    localityMap.forEach((data, locality) => {
-        if (!data.lat || !data.lon || data.types.length === 0) return;
-
-        const counts = {};
-        data.types.forEach(t => counts[t] = (counts[t] || 0) + 1);
-
-        let topThreat = "";
-        let maxCount = 0;
-        for (const [t, count] of Object.entries(counts)) {
-            if (count > maxCount) {
-                maxCount = count;
-                topThreat = t;
-            }
-        }
-
-        const probability = Math.round((maxCount / data.types.length) * 100);
-
+        const probability = parseInt(topThreatData.probability_percentage);
         if (probability >= 30) {
-            let risk = 'low'; 
-            if (probability >= 65) risk = 'high'; 
-            else if (probability >= 40) risk = 'medium'; 
-
+            let risk = probability >= 65 ? 'high' : (probability >= 40 ? 'medium' : 'low');
             const emojis = { "Wildfire": "🔥", "Flood": "🌊", "Storm": "🌪️", "Heatwave": "☀️", "Earthquake": "🌋", "Drought": "🏜️" };
-            const emoji = emojis[topThreat] || '⚠️';
+            const emoji = emojis[topThreatData.disaster_type] || '⚠️';
 
             const icon = L.divIcon({
-                html: `<div class="emoji-marker risk-${risk}" title="Seasonal Risk: ${probability}% ${topThreat}">${emoji}</div>`,
-                className: '',
-                iconSize: [28, 28],
-                iconAnchor: [14, 14]
+                html: `<div class="emoji-marker risk-${risk}" title="${probability}% ${topThreatData.disaster_type}">${emoji}</div>`,
+                className: '', iconSize: [28, 28], iconAnchor: [14, 14]
             });
 
-            const marker = L.marker([data.lat, data.lon], { 
-                icon: icon,
-                customRisk: risk,
-                customEmoji: emoji
-            });
+            const marker = L.marker([cell.lat, cell.lon], { icon: icon, customRisk: risk, customEmoji: emoji });
             
             marker.on('click', () => {
                 isMarkerClick = true;
-                map.panTo([data.lat, data.lon]);
-                
-                triggerAreaPrediction(data.lat, data.lon);
+                map.flyTo([cell.lat, cell.lon], 14, { duration: 1.2 });
+                displayDetails({
+                    locality: "Regional Sector",
+                    disaster_type: topThreatData.disaster_type,
+                    risk_level: risk,
+                    emoji: emoji,
+                    primary_reason: `Live ML forecast indicates a ${probability}% probability for ${topThreatData.disaster_type}.`,
+                    dynamic_precautions: ["Monitor local safety warnings."]
+                }, cell.lat, cell.lon);
             });
 
             markersClusterGroup.addLayer(marker);
@@ -205,6 +163,7 @@ function renderMarkers() {
     });
 
     map.addLayer(markersClusterGroup);
+    document.getElementById('info-panel').innerHTML = '<div class="info-card low"><h3>🌍 Global View</h3><p>Select a region or marker to view detailed local forecasts.</p></div>';
 }
 
 async function searchLocation(query) {
