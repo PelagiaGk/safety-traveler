@@ -63,6 +63,11 @@ async function initApp() {
                 </div>`;
         }
     });
+
+    const searchInput = document.getElementById('search-box');
+    if (searchInput) {
+        searchInput.addEventListener('keypress', handleSearch);
+    }
 }
 
 function renderMarkers() {
@@ -103,10 +108,22 @@ function renderMarkers() {
         }
     });
 
+    let safeDataArray = [];
+    if (Array.isArray(allDisasterData)) {
+        safeDataArray = allDisasterData;
+    } else if (allDisasterData && Array.isArray(allDisasterData.features)) {
+        safeDataArray = allDisasterData.features; 
+    } else if (allDisasterData && Array.isArray(allDisasterData.data)) {
+        safeDataArray = allDisasterData.data; 
+    } else {
+        console.error("Could not find the data array. API returned:", allDisasterData);
+        return; 
+    }
+
     const dropdownValue = document.getElementById('season-filter').value;
     const activeSeason = dropdownValue === "" ? getCurrentSeason() : dropdownValue;
     
-    const filteredRecords = allDisasterData.filter(record => {
+    const filteredRecords = safeDataArray.filter(record => {
         const recordSeason = record.season || record.properties?.season || '';
         return recordSeason.toLowerCase() === activeSeason.toLowerCase();
     });
@@ -212,6 +229,30 @@ async function displayDetails(props, lat, lon) {
             </div>
         </div>
     `;
+}
+
+async function handleSearch(event) {
+    if (event.key === 'Enter') {
+        const query = event.target.value.trim();
+        if (!query) return;
+
+        try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
+            const data = await res.json();
+
+            if (data && data.length > 0) {
+                const lat = parseFloat(data[0].lat);
+                const lon = parseFloat(data[0].lon);
+                
+                map.flyTo([lat, lon], 13, { duration: 1.5 });
+                
+            } else {
+                alert("Location not found. Please try a different search term.");
+            }
+        } catch (err) {
+            console.error("Search failed:", err);
+        }
+    }
 }
 
 document.addEventListener('DOMContentLoaded', initApp);
