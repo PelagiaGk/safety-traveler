@@ -38,9 +38,28 @@ async function initApp() {
 
             const borderColor = highestRisk === 'high' ? '#ef4444' : highestRisk === 'medium' ? '#f59e0b' : '#10b981';
             return L.divIcon({
-                html: `<div style="width: 38px; height: 38px; font-size: 20px; display: flex; align-items: center; justify-content: center; background: white; border-radius: 50%; border: 3px solid ${borderColor}; position: relative; box-shadow: 0 2px 6px rgba(0,0,0,0.25);">
+                html: `<div style="width: 38px; 
+                height: 38px; 
+                font-size: 20px; 
+                display: flex; 
+                align-items: center; 
+                justify-content: center; 
+                background: white; 
+                border-radius: 50%; 
+                border: 3px solid ${borderColor}; 
+                position: relative; 
+                box-shadow: 0 2px 6px rgba(0,0,0,0.25);">
                           ${dominantEmoji}
-                          <span style="position: absolute; top: -6px; right: -6px; background: #334155; color: white; border-radius: 50%; font-size: 11px; font-weight: bold; padding: 2px 5px; border: 2px solid white;">${children.length}</span>
+                          <span style="position: absolute; 
+                          top: -6px; 
+                          right: -6px; 
+                          background: #334155; 
+                          color: white; 
+                          border-radius: 50%; 
+                          font-size: 11px; 
+                          font-weight: bold; 
+                          padding: 2px 5px; 
+                          border: 2px solid white;">${children.length}</span>
                        </div>`,
                 className: 'custom-cluster-wrap', iconSize: [38, 38], iconAnchor: [19, 19]
             });
@@ -60,7 +79,16 @@ async function initApp() {
     });
 
     const searchInput = document.getElementById('search-input');
-    if (searchInput) searchInput.addEventListener('keypress', handleSearch);
+    const searchBtn = document.getElementById('search-btn');
+
+    if (searchInput) {
+        searchInput.addEventListener('keypress', handleSearch);
+    }
+    if (searchBtn) {
+        searchBtn.addEventListener('click', () => {
+            handleSearch({ key: 'Enter', target: searchInput });
+        });
+    }    
 
     scanVisibleArea();
 }
