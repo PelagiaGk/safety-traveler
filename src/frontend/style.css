@@ -51,7 +51,7 @@ h2 { margin: 0;
     transition: box-shadow 0.2s ease-in-out;
 } 
 
-.search-container:focus-within {
+.search-box:focus-within {
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
     border-color: #e2e8f0;
 }
