@@ -5,6 +5,32 @@ let scanTimeout = null;
 let overpassCircuitTripped = false; 
 const plottedMarkersCache = [];
 const MIN_DISTANCE_THRESHOLD = 0.25;
+let currentRegionName = "Regional View";
+
+async function updateSidebarRegion(lat, lon) {
+    const panel = document.getElementById('info-panel');
+    
+    if (panel.innerHTML.includes("📍")) return; 
+
+    try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&accept-language=en`);
+        if (res.ok) {
+            const data = await res.json();
+            if (data.address) {
+                currentRegionName = data.address.county || data.address.municipality || data.address.state_district || data.address.state || "Regional View";
+            }
+        }
+    } catch (err) {
+    }
+
+    if (!panel.innerHTML.includes("📍")) {
+        panel.innerHTML = `
+            <div class="info-card low">
+                <h3>🌍 ${currentRegionName}</h3>
+                <p>Select a marker in this area to view detailed local forecasts.</p>
+            </div>`;
+    }
+}
 
 function getCurrentSeason() {
     const month = new Date().getMonth() + 1;
@@ -193,9 +219,8 @@ async function scanVisibleArea() {
         }
     }
 
-    if (!panel.innerHTML.includes("📍")) {
-        panel.innerHTML = '<div class="info-card low"><h3>🌍 Regional View</h3><p>Select a region or marker to view detailed local forecasts.</p></div>';
-    }
+    const center = bounds.getCenter();
+    updateSidebarRegion(center.lat, center.lng);
 }
 
 function plotDynamicMarker(lat, lon, topThreat, cityName) {
