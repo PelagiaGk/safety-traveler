@@ -2,6 +2,7 @@ let map;
 let markersClusterGroup;
 let isMarkerClick = false;
 let scanTimeout = null;
+let overpassCircuitTripped = false; 
 
 function getCurrentSeason() {
     const month = new Date().getMonth() + 1;
@@ -111,24 +112,35 @@ async function scanVisibleArea() {
 
     let targetPoints = [];
 
-    try {
-        const query = `[out:json][timeout:4];node["place"~"city|town|village|suburb"](${s},${w},${n},${e});out 12;`;
-        const overpassRes = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
-        
-        if (overpassRes.ok) {
-            const cityData = await overpassRes.json();
-            if (cityData.elements && cityData.elements.length > 0) {
-                cityData.elements.forEach(city => {
-                    targetPoints.push({
-                        lat: city.lat,
-                        lon: city.lon,
-                        name: city.tags['name:en'] || city.tags.name || "Regional Sector"
+    if (!overpassCircuitTripped) {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 2500);
+
+            const query = `[out:json][timeout:2];node["place"~"city|town"](${s},${w},${n},${e});out 10;`;
+            const overpassRes = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`, {
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId); 
+
+            if (overpassRes.ok) {
+                const cityData = await overpassRes.json();
+                if (cityData.elements && cityData.elements.length > 0) {
+                    cityData.elements.forEach(city => {
+                        targetPoints.push({
+                            lat: city.lat,
+                            lon: city.lon,
+                            name: city.tags['name:en'] || city.tags.name || "Regional Sector"
+                        });
                     });
-                });
+                }
             }
+        } catch (err) {
+            console.warn("Overpass API timed out or blocked. Tripping circuit breaker for 60 seconds.");
+            overpassCircuitTripped = true;
+            setTimeout(() => { overpassCircuitTripped = false; }, 60000); 
         }
-    } catch (err) {
-        console.warn("City mapping API blocked or unavailable. Triggering fallback.");
     }
 
     if (targetPoints.length === 0) {
@@ -139,7 +151,6 @@ async function scanVisibleArea() {
 
         for (let i = 1; i < steps; i++) {
             for (let j = 1; j < steps; j++) {
-                // Add a random offset so the grid looks natural, not like rigid squares
                 const latOffset = (Math.random() - 0.5) * (latStep * 0.5);
                 const lonOffset = (Math.random() - 0.5) * (lonStep * 0.5);
                 
