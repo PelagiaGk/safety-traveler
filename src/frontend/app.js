@@ -140,7 +140,8 @@ async function scanVisibleArea() {
     const e = bounds.getEast().toFixed(4);
 
     let rawPoints = [];
-    let apiSucceeded = false;
+    let isOcean = false;
+    let apiOffline = false;
 
     if (!overpassCircuitTripped) {
         try {
@@ -155,7 +156,6 @@ async function scanVisibleArea() {
             clearTimeout(timeoutId);
 
             if (overpassRes.ok) {
-                apiSucceeded = true;
                 const cityData = await overpassRes.json();
                 if (cityData.elements && cityData.elements.length > 0) {
                     cityData.elements.forEach(city => {
@@ -166,37 +166,47 @@ async function scanVisibleArea() {
                         });
                     });
                 }
+            } else {
+                apiOffline = true;
             }
         } catch (err) {
             overpassCircuitTripped = true;
+            apiOffline = true;
             setTimeout(() => { overpassCircuitTripped = false; }, 60000); 
         }
+    } else {
+        apiOffline = true;
     }
 
-    if (!apiSucceeded && rawPoints.length === 0) {
+    if (rawPoints.length === 0) {
         const center = bounds.getCenter();
         try {
             const geoCheck = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${center.lat}&lon=${center.lng}&zoom=10`);
-            if (!geoCheck.ok) throw new Error("Rate Limited");
-            const geoData = await geoCheck.json();
-            
-            if (geoData.address && (geoData.address.county || geoData.address.municipality || geoData.address.city || geoData.address.state_district)) {
-                rawPoints.push({ 
-                    lat: parseFloat(center.lat), 
-                    lon: parseFloat(center.lng), 
-                    name: geoData.address.county || geoData.address.municipality || "Regional Sector" 
-                });
+            if (geoCheck.ok) {
+                apiOffline = false;
+                const geoData = await geoCheck.json();
+                
+                if (geoData.address && (geoData.address.county || geoData.address.municipality || geoData.address.city || geoData.address.state_district)) {
+                    rawPoints.push({ 
+                        lat: parseFloat(center.lat), 
+                        lon: parseFloat(center.lng), 
+                        name: geoData.address.county || geoData.address.municipality || "Regional Sector" 
+                    });
+                } 
+                else if (geoData.address && (geoData.address.sea || geoData.address.ocean || geoData.address.water)) {
+                    isOcean = true;
+                }
             } else {
-                console.log("Scan aborted: Center point is over water or lacks land administration.");
+                apiOffline = true;
             }
         } catch (err) {
-            console.warn("Network failure during fallback check.");
+            apiOffline = true;
         }
     }
-    
-    if (rawPoints.length === 0) {
+
+    if (rawPoints.length === 0 && apiOffline && !isOcean) {
         const center = bounds.getCenter();
-        console.warn("All external mapping APIs failed or blocked. Forcing a scan at screen center.");
+        console.warn("All external APIs failed. Forcing scan.");
         rawPoints.push({
             lat: parseFloat(center.lat),
             lon: parseFloat(center.lng),
