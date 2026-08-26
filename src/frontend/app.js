@@ -171,15 +171,23 @@ async function scanVisibleArea() {
     }
 
     if (!apiSucceeded && rawPoints.length === 0) {
-        const zoom = map.getZoom();
-        if (zoom >= 9) {
-            rawPoints.push({ lat: parseFloat(bounds.getCenter().lat), lon: parseFloat(bounds.getCenter().lng), name: "Regional Sector" });
-        } else {
-            rawPoints.push({ 
-                lat: parseFloat(bounds.getSouth() + (bounds.getNorth() - bounds.getSouth()) / 2), 
-                lon: parseFloat(bounds.getWest() + (bounds.getEast() - bounds.getWest()) / 2), 
-                name: "Regional Sector" 
-            });
+        const center = bounds.getCenter();
+        
+        try {
+            const geoCheck = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${center.lat}&lon=${center.lng}&zoom=10`);
+            const geoData = await geoCheck.json();
+            
+            if (!geoData.error) {
+                rawPoints.push({ 
+                    lat: parseFloat(center.lat), 
+                    lon: parseFloat(center.lng), 
+                    name: geoData.address.county || geoData.address.municipality || "Regional Sector" 
+                });
+            } else {
+                console.log("Fallback aborted: Center point is over water or invalid.");
+            }
+        } catch (err) {
+            console.warn("Complete network failure. Aborting scan.");
         }
     }
 
