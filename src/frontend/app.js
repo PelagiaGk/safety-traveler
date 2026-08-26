@@ -99,7 +99,7 @@ async function scanVisibleArea() {
     const panel = document.getElementById('info-panel');
     
     if (!panel.innerHTML.includes("📍")) {
-        panel.innerHTML = '<div class="info-card low"><p style="color: #64748b;">📡 Scanning live ML forecasts for regional cities...</p></div>';
+        panel.innerHTML = '<div class="info-card low"><p style="color: #64748b;">📡 Scanning live ML forecasts...</p></div>';
     }
 
     markersClusterGroup.clearLayers(); 
@@ -109,39 +109,61 @@ async function scanVisibleArea() {
     const n = bounds.getNorth().toFixed(4);
     const e = bounds.getEast().toFixed(4);
 
-    const query = `[out:json][timeout:10];(node["place"="city"](${s},${w},${n},${e});node["place"="town"](${s},${w},${n},${e}););out 15;`;
-    
-    try {
-        const overpassRes = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
-        const cityData = await overpassRes.json();
+    let targetPoints = [];
 
-        if (cityData.elements && cityData.elements.length > 0) {
-            for (const city of cityData.elements) {
-                const lat = city.lat;
-                const lon = city.lon;
-                const cityName = city.tags['name:en'] || city.tags.name || "Unknown City";
-                
-                try {
-                    const url = `/api/v1/predict?lat=${lat}&lon=${lon}&region=${encodeURIComponent(cityName)}&season=${season}`;
-                    const res = await fetch(url);
-                    if (res.ok) {
-                        const data = await res.json();
-                        if (data.predictions && data.predictions.length > 0) {
-                            plotDynamicMarker(lat, lon, data.predictions[0], cityName);
-                        }
-                    }
-                } catch (err) {
-                    console.warn(`Scan point failed for ${cityName}.`);
-                }
+    try {
+        const query = `[out:json][timeout:4];node["place"~"city|town|village|suburb"](${s},${w},${n},${e});out 12;`;
+        const overpassRes = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
+        
+        if (overpassRes.ok) {
+            const cityData = await overpassRes.json();
+            if (cityData.elements && cityData.elements.length > 0) {
+                cityData.elements.forEach(city => {
+                    targetPoints.push({
+                        lat: city.lat,
+                        lon: city.lon,
+                        name: city.tags['name:en'] || city.tags.name || "Regional Sector"
+                    });
+                });
             }
-        } else {
-             if (!panel.innerHTML.includes("📍")) {
-                 panel.innerHTML = '<div class="info-card low"><h3>🌍 Regional View</h3><p>No major settlements detected in this specific view. Please pan the map or search.</p></div>';
-             }
-             return;
         }
     } catch (err) {
-        console.error("City mapping failed.", err);
+        console.warn("City mapping API blocked or unavailable. Triggering fallback.");
+    }
+
+    if (targetPoints.length === 0) {
+        const zoom = map.getZoom();
+        const steps = zoom <= 5 ? 2 : (zoom <= 8 ? 3 : 4); 
+        const latStep = (bounds.getNorth() - bounds.getSouth()) / steps;
+        const lonStep = (bounds.getEast() - bounds.getWest()) / steps;
+
+        for (let i = 1; i < steps; i++) {
+            for (let j = 1; j < steps; j++) {
+                // Add a random offset so the grid looks natural, not like rigid squares
+                const latOffset = (Math.random() - 0.5) * (latStep * 0.5);
+                const lonOffset = (Math.random() - 0.5) * (lonStep * 0.5);
+                
+                const lat = (bounds.getSouth() + (i * latStep) + latOffset).toFixed(4);
+                const lon = (bounds.getWest() + (j * lonStep) + lonOffset).toFixed(4);
+                
+                targetPoints.push({ lat: lat, lon: lon, name: "Scanned Sector" });
+            }
+        }
+    }
+
+    for (const pt of targetPoints) {
+        try {
+            const url = `/api/v1/predict?lat=${pt.lat}&lon=${pt.lon}&region=${encodeURIComponent(pt.name)}&season=${season}`;
+            const res = await fetch(url);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.predictions && data.predictions.length > 0) {
+                    plotDynamicMarker(pt.lat, pt.lon, data.predictions[0], pt.name);
+                }
+            }
+        } catch (err) {
+            console.warn(`ML API connection failed for coordinate: ${pt.lat}, ${pt.lon}`);
+        }
     }
 
     if (!panel.innerHTML.includes("📍")) {
@@ -159,28 +181,29 @@ function plotDynamicMarker(lat, lon, topThreat, cityName) {
     const borderColor = risk === 'high' ? '#ef4444' : risk === 'medium' ? '#f59e0b' : '#10b981';
 
     const icon = L.divIcon({
-        html: `<div style="background: white; 
-        border-radius: 50%; 
-        width: 28px; 
-        height: 28px; 
-        display: flex; 
-        align-items: center; 
-        justify-content: center; 
-        font-size: 16px; 
-        border: 3px solid ${borderColor}; 
-        box-shadow: 0 2px 5px rgba(0,0,0,0.15); 
-        cursor: pointer;" title="${cityName}: ${probability}% ${topThreat.disaster_type}">${emoji}</div>`,
+        html: `<div style="background: white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 16px; border: 3px solid ${borderColor}; box-shadow: 0 2px 5px rgba(0,0,0,0.15); cursor: pointer;" title="${cityName}: ${probability}% ${topThreat.disaster_type}">${emoji}</div>`,
         className: '', iconSize: [28, 28], iconAnchor: [14, 14]
     });
 
     const marker = L.marker([lat, lon], { icon: icon, customRisk: risk, customEmoji: emoji });
     
-    marker.on('click', () => {
+    marker.on('click', async () => {
         isMarkerClick = true;
         map.flyTo([lat, lon], 12, { duration: 1.2 });
         
+        let finalName = cityName;
+        if (finalName === "Scanned Sector") {
+            try {
+                const geo = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+                const geoData = await geo.json();
+                if (geoData.address) {
+                    finalName = geoData.address.city || geoData.address.town || geoData.address.village || finalName;
+                }
+            } catch (err) {} 
+        }
+
         displayDetails({
-            locality: cityName, 
+            locality: finalName, 
             disaster_type: topThreat.disaster_type,
             risk_level: risk,
             emoji: emoji,
