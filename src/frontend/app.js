@@ -3,6 +3,8 @@ let markersClusterGroup;
 let isMarkerClick = false;
 let scanTimeout = null;
 let overpassCircuitTripped = false; 
+const plottedMarkersCache = [];
+const MIN_DISTANCE_THRESHOLD = 0.06;
 
 function getCurrentSeason() {
     const month = new Date().getMonth() + 1;
@@ -103,14 +105,12 @@ async function scanVisibleArea() {
         panel.innerHTML = '<div class="info-card low"><p style="color: #64748b;">📡 Scanning live ML forecasts...</p></div>';
     }
 
-    markersClusterGroup.clearLayers(); 
-
     const s = bounds.getSouth().toFixed(4);
     const w = bounds.getWest().toFixed(4);
     const n = bounds.getNorth().toFixed(4);
     const e = bounds.getEast().toFixed(4);
 
-    let targetPoints = [];
+    let rawPoints = [];
 
     if (!overpassCircuitTripped) {
         try {
@@ -122,47 +122,66 @@ async function scanVisibleArea() {
                 signal: controller.signal
             });
             
-            clearTimeout(timeoutId); 
+            clearTimeout(timeoutId);
 
             if (overpassRes.ok) {
                 const cityData = await overpassRes.json();
                 if (cityData.elements && cityData.elements.length > 0) {
                     cityData.elements.forEach(city => {
-                        targetPoints.push({
-                            lat: city.lat,
-                            lon: city.lon,
+                        rawPoints.push({
+                            lat: parseFloat(city.lat),
+                            lon: parseFloat(city.lon),
                             name: city.tags['name:en'] || city.tags.name || "Regional Sector"
                         });
                     });
                 }
             }
         } catch (err) {
-            console.warn("Overpass API timed out or blocked. Tripping circuit breaker for 60 seconds.");
+            console.warn("Overpass API timed out. Tripping circuit breaker for 60 seconds.");
             overpassCircuitTripped = true;
             setTimeout(() => { overpassCircuitTripped = false; }, 60000); 
         }
     }
 
-    if (targetPoints.length === 0) {
+    if (rawPoints.length === 0) {
         const zoom = map.getZoom();
-        const steps = zoom <= 5 ? 2 : (zoom <= 8 ? 3 : 4); 
+        const steps = zoom <= 6 ? 2 : 3;
         const latStep = (bounds.getNorth() - bounds.getSouth()) / steps;
         const lonStep = (bounds.getEast() - bounds.getWest()) / steps;
 
         for (let i = 1; i < steps; i++) {
             for (let j = 1; j < steps; j++) {
-                const latOffset = (Math.random() - 0.5) * (latStep * 0.5);
-                const lonOffset = (Math.random() - 0.5) * (lonStep * 0.5);
+                const latOffset = (Math.random() - 0.5) * (latStep * 0.4);
+                const lonOffset = (Math.random() - 0.5) * (lonStep * 0.4);
                 
-                const lat = (bounds.getSouth() + (i * latStep) + latOffset).toFixed(4);
-                const lon = (bounds.getWest() + (j * lonStep) + lonOffset).toFixed(4);
-                
-                targetPoints.push({ lat: lat, lon: lon, name: "Scanned Sector" });
+                rawPoints.push({ 
+                    lat: parseFloat(bounds.getSouth() + (i * latStep) + latOffset), 
+                    lon: parseFloat(bounds.getWest() + (j * lonStep) + lonOffset), 
+                    name: "Scanned Sector" 
+                });
             }
         }
     }
 
-    for (const pt of targetPoints) {
+    const validNewPoints = [];
+    for (const pt of rawPoints) {
+        let isTooClose = false;
+        
+        for (const cachedPt of plottedMarkersCache) {
+            const distance = Math.sqrt(Math.pow(pt.lat - cachedPt.lat, 2) + Math.pow(pt.lon - cachedPt.lon, 2));
+            if (distance < MIN_DISTANCE_THRESHOLD) {
+                isTooClose = true;
+                break;
+            }
+        }
+
+        if (!isTooClose) {
+            validNewPoints.push(pt);
+            plottedMarkersCache.push({ lat: pt.lat, lon: pt.lon }); 
+        }
+    }
+
+    for (const pt of validNewPoints) {
         try {
             const url = `/api/v1/predict?lat=${pt.lat}&lon=${pt.lon}&region=${encodeURIComponent(pt.name)}&season=${season}`;
             const res = await fetch(url);
@@ -173,7 +192,7 @@ async function scanVisibleArea() {
                 }
             }
         } catch (err) {
-            console.warn(`ML API connection failed for coordinate: ${pt.lat}, ${pt.lon}`);
+            console.warn(`ML API failed for: ${pt.lat}, ${pt.lon}`);
         }
     }
 
@@ -192,7 +211,7 @@ function plotDynamicMarker(lat, lon, topThreat, cityName) {
     const borderColor = risk === 'high' ? '#ef4444' : risk === 'medium' ? '#f59e0b' : '#10b981';
 
     const icon = L.divIcon({
-        html: `<div style="background: white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 16px; border: 3px solid ${borderColor}; box-shadow: 0 2px 5px rgba(0,0,0,0.15); cursor: pointer;" title="${cityName}: ${probability}% ${topThreat.disaster_type}">${emoji}</div>`,
+        html: `<div style="background: white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 16px; border: 3px solid ${borderColor}; box-shadow: 0 2px 5px rgba(0,0,0,0.15); cursor: pointer;" title="${cityName} Region: ${probability}% ${topThreat.disaster_type}">${emoji}</div>`,
         className: '', iconSize: [28, 28], iconAnchor: [14, 14]
     });
 
@@ -200,7 +219,7 @@ function plotDynamicMarker(lat, lon, topThreat, cityName) {
     
     marker.on('click', async () => {
         isMarkerClick = true;
-        map.flyTo([lat, lon], 12, { duration: 1.2 });
+        map.flyTo([lat, lon], 11, { duration: 1.2 }); 
         
         let finalName = cityName;
         if (finalName === "Scanned Sector") {
@@ -214,11 +233,11 @@ function plotDynamicMarker(lat, lon, topThreat, cityName) {
         }
 
         displayDetails({
-            locality: finalName, 
+            locality: finalName + " (Regional Radius)", 
             disaster_type: topThreat.disaster_type,
             risk_level: risk,
             emoji: emoji,
-            primary_reason: `Live ML forecast indicates a ${probability}% probability for ${topThreat.disaster_type}.`,
+            primary_reason: `Live ML forecast indicates a ${probability}% probability for ${topThreat.disaster_type} in the surrounding area.`,
             dynamic_precautions: ["Monitor local meteorological bulletins and regional safety warnings."]
         });
     });
