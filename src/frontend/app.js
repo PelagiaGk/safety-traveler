@@ -4,7 +4,7 @@ let isMarkerClick = false;
 let scanTimeout = null;
 let overpassCircuitTripped = false; 
 const plottedMarkersCache = [];
-const MIN_DISTANCE_THRESHOLD = 0.06;
+const MIN_DISTANCE_THRESHOLD = 0.25;
 
 function getCurrentSeason() {
     const month = new Date().getMonth() + 1;
@@ -115,9 +115,9 @@ async function scanVisibleArea() {
     if (!overpassCircuitTripped) {
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 2500);
+            const timeoutId = setTimeout(() => controller.abort(), 2000);
 
-            const query = `[out:json][timeout:2];node["place"~"city|town"](${s},${w},${n},${e});out 10;`;
+            const query = `[out:json][timeout:2];node["place"~"city|town"](${s},${w},${n},${e});out 8;`;
             const overpassRes = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`, {
                 signal: controller.signal
             });
@@ -137,7 +137,6 @@ async function scanVisibleArea() {
                 }
             }
         } catch (err) {
-            console.warn("Overpass API timed out. Tripping circuit breaker for 60 seconds.");
             overpassCircuitTripped = true;
             setTimeout(() => { overpassCircuitTripped = false; }, 60000); 
         }
@@ -145,21 +144,19 @@ async function scanVisibleArea() {
 
     if (rawPoints.length === 0) {
         const zoom = map.getZoom();
-        const steps = zoom <= 6 ? 2 : 3;
-        const latStep = (bounds.getNorth() - bounds.getSouth()) / steps;
-        const lonStep = (bounds.getEast() - bounds.getWest()) / steps;
-
-        for (let i = 1; i < steps; i++) {
-            for (let j = 1; j < steps; j++) {
-                const latOffset = (Math.random() - 0.5) * (latStep * 0.4);
-                const lonOffset = (Math.random() - 0.5) * (lonStep * 0.4);
-                
-                rawPoints.push({ 
-                    lat: parseFloat(bounds.getSouth() + (i * latStep) + latOffset), 
-                    lon: parseFloat(bounds.getWest() + (j * lonStep) + lonOffset), 
-                    name: "Scanned Sector" 
-                });
-            }
+        
+        if (zoom >= 9) {
+            rawPoints.push({ 
+                lat: parseFloat(bounds.getCenter().lat), 
+                lon: parseFloat(bounds.getCenter().lng), 
+                name: "Regional Sector" 
+            });
+        } else {
+            rawPoints.push({ 
+                lat: parseFloat(bounds.getSouth() + (bounds.getNorth() - bounds.getSouth()) / 2), 
+                lon: parseFloat(bounds.getWest() + (bounds.getEast() - bounds.getWest()) / 2), 
+                name: "Regional Sector" 
+            });
         }
     }
 
