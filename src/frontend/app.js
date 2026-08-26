@@ -10,8 +10,10 @@ const MIN_DISTANCE_THRESHOLD = 0.25;
 
 document.addEventListener("DOMContentLoaded", () => {
     map = L.map('map').setView([38.0, 24.0], 6); 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
+    map = L.map('map').setView([38.0, 24.0], 6); 
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 19
     }).addTo(map);
 
     markersClusterGroup = L.featureGroup().addTo(map); 
@@ -309,43 +311,24 @@ function plotDynamicMarker(lat, lon, topThreat, cityName) {
         let finalName = cityName;
         directionPrefix = getCompassDirection(lat, lon, geoData.boundingbox);
         
+        let finalName = cityName;
+        let directionPrefix = "";
+        
         try {
+            await new Promise(resolve => setTimeout(resolve, 1300));
+
             const geo = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&accept-language=en`);
-            if (!geo.ok) throw new Error("Rate Limited");
-            const geoData = await geo.json();
             
-            if (geoData.address) {
-                finalName = geoData.address.county || geoData.address.municipality || geoData.address.state_district || geoData.address.state || finalName;
-                
-                if (geoData.boundingbox) {
-                    const latMin = parseFloat(geoData.boundingbox[0]);
-                    const latMax = parseFloat(geoData.boundingbox[1]);
-                    const lonMin = parseFloat(geoData.boundingbox[2]);
-                    const lonMax = parseFloat(geoData.boundingbox[3]);
-
-                    const latThird = (latMax - latMin) / 3;
-                    const lonThird = (lonMax - lonMin) / 3;
-
-                    let v = ""; 
-                    let h = "";
-
-                    if (lat >= latMax - latThird) v = "North";
-                    else if (lat <= latMin + latThird) v = "South";
-
-                    if (lon >= lonMax - lonThird) h = "East";
-                    else if (lon <= lonMin + lonThird) h = "West";
-
-                    if (v && h) {
-                        directionPrefix = `${v}${h.toLowerCase()} `;
-                    } else if (v || h) {
-                        directionPrefix = `${v || h} `;
-                    } else {
-                        directionPrefix = "Central ";
-                    }
+            if (geo.ok) {
+                const geoData = await geo.json();
+                if (geoData.address) {
+                    finalName = geoData.address.county || geoData.address.municipality || geoData.address.state_district || geoData.address.state || finalName;
+                    
+                    directionPrefix = getCompassDirection(lat, lon, geoData.boundingbox);
                 }
             }
         } catch (err) {
-            console.warn("Failed to resolve regional name.");
+            console.warn("Failed to resolve regional name on click. Using fallback.");
         } 
 
         displayDetails({
