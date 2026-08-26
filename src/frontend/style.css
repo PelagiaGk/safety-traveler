@@ -40,7 +40,7 @@ h2 { margin: 0;
     top: 20px;
     left: 380px; 
     z-index: 9999 !important; 
-    display: flex;
+    display: grid;
     place-items: center;
     background: #ffffff;
     border-radius: 25px; 

@@ -6,6 +6,7 @@ let overpassCircuitTripped = false;
 const plottedMarkersCache = [];
 const MIN_DISTANCE_THRESHOLD = 0.25;
 let currentRegionName = "Regional View";
+let mapIdleTimer;
 
 async function updateSidebarRegion(lat, lon) {
     const panel = document.getElementById('info-panel');
@@ -13,7 +14,8 @@ async function updateSidebarRegion(lat, lon) {
     if (panel.innerHTML.includes("Season:")) return; 
 
     try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=8&accept-language=en`);
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=8&accept-language=en&email=github_public_repo@example.com`);
+        if (!res.ok) throw new Error("Rate Limited"); 
         if (res.ok) {
             const data = await res.json();
             if (data.address) {
@@ -62,8 +64,15 @@ async function initApp() {
             }
         }
     }
+
     map.on('moveend', () => {
-        isMarkerClick = false; 
+    isMarkerClick = false; 
+    clearTimeout(mapIdleTimer);
+    mapIdleTimer = setTimeout(() => {
+        const center = map.getBounds().getCenter();
+        updateSidebarRegion(center.lat, center.lng);
+        scanVisibleArea();
+    }, 1500); 
     });
 
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
@@ -117,13 +126,6 @@ async function initApp() {
         }
     });
     map.addLayer(markersClusterGroup);
-
-    map.on('moveend', () => {
-        if (isMarkerClick) { isMarkerClick = false; return; }
-        
-        clearTimeout(scanTimeout);
-        scanTimeout = setTimeout(() => { scanVisibleArea(); }, 600); 
-    });
 
     document.getElementById('season-filter').addEventListener('change', () => {
         scanVisibleArea();
@@ -196,7 +198,8 @@ async function scanVisibleArea() {
         const center = bounds.getCenter();
         
         try {
-            const geoCheck = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${center.lat}&lon=${center.lng}&zoom=10`);
+            const geoCheck = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${center.lat}&lon=${center.lng}&zoom=10&email=github_public_repo@example.com`);
+            if (!geoCheck.ok) throw new Error("Rate Limited"); 
             const geoData = await geoCheck.json();
             
             if (geoData.address && (geoData.address.county || geoData.address.municipality || geoData.address.city || geoData.address.state_district)) {
