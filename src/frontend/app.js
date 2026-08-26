@@ -54,6 +54,30 @@ function getCurrentSeason() {
     return "Winter";
 }
 
+function getCompassDirection(lat, lon, boundingbox) {
+    if (!boundingbox || boundingbox.length < 4) return "";
+    const latMin = parseFloat(boundingbox[0]);
+    const latMax = parseFloat(boundingbox[1]);
+    const lonMin = parseFloat(boundingbox[2]);
+    const lonMax = parseFloat(boundingbox[3]);
+
+    if (latMax - latMin < 0.001 || lonMax - lonMin < 0.001) return "";
+
+    const latThird = (latMax - latMin) / 3;
+    const lonThird = (lonMax - lonMin) / 3;
+
+    let v = "", h = "";
+    if (lat >= latMax - latThird) v = "North";
+    else if (lat <= latMin + latThird) v = "South";
+
+    if (lon >= lonMax - lonThird) h = "East";
+    else if (lon <= lonMin + lonThird) h = "West";
+
+    if (v && h) return `${v}${h.toLowerCase()} `;
+    if (v || h) return `${v || h} `;
+    return "Central ";
+}
+
 function displayDetails(data) {
     const panel = document.getElementById('info-panel');
     const season = document.getElementById('season-filter')?.value || getCurrentSeason();
@@ -77,34 +101,27 @@ function displayDetails(data) {
 
 async function updateSidebarRegion(lat, lon) {
     const panel = document.getElementById('info-panel');
-    
     if (panel.innerHTML.includes("Season:")) return; 
 
     try {
         const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=8&accept-language=en`);
-        if (!res.ok) throw new Error("Rate Limited"); 
-        
-        const data = await res.json();
-        if (data.address) {
-            currentRegionName = data.address.sea || 
-                                data.address.ocean || 
-                                data.address.county || 
-                                data.address.state_district || 
-                                data.address.state || 
-                                "Uncharted Marine Sector";
-        } else {
-            currentRegionName = "Marine Sector";
+        if (res.ok) {
+            const data = await res.json();
+            if (data.address) {
+                let baseName = data.address.sea || data.address.ocean || data.address.county || data.address.state_district || data.address.state || "Uncharted Marine Sector";
+                
+                let prefix = getCompassDirection(lat, lon, data.boundingbox);
+                currentRegionName = prefix + baseName;
+            } else {
+                currentRegionName = "Marine Sector";
+            }
         }
     } catch (err) {
         currentRegionName = "Regional View"; 
     }
 
     if (!panel.innerHTML.includes("Season:")) {
-        panel.innerHTML = `
-            <div class="info-card low">
-                <h3>🌍 ${currentRegionName}</h3>
-                <p>Select a marker in this area to view detailed local forecasts.</p>
-            </div>`;
+        panel.innerHTML = `<div class="info-card low"><h3>🌍 ${currentRegionName}</h3><p>Select a marker in this area to view detailed local forecasts.</p></div>`;
     }
 }
 
@@ -187,32 +204,47 @@ async function scanVisibleArea() {
         });
     }
 
-    const validNewPoints = [];
+    const thinnedPoints = [];
     for (const pt of rawPoints) {
-        let isTooClose = false;
-        
-        for (const cachedPt of plottedMarkersCache) {
-            const distance = Math.sqrt(Math.pow(pt.lat - cachedPt.lat, 2) + Math.pow(pt.lon - cachedPt.lon, 2));
-            if (distance < MIN_DISTANCE_THRESHOLD) {
-                isTooClose = true;
-                break;
-            }
-        }
-
-        if (!isTooClose) {
-            validNewPoints.push(pt);
-            plottedMarkersCache.push({ lat: pt.lat, lon: pt.lon }); 
-        }
+        let isTooClose = thinnedPoints.some(tPt => Math.sqrt(Math.pow(pt.lat - tPt.lat, 2) + Math.pow(pt.lon - tPt.lon, 2)) < 0.05); 
+        if (!isTooClose) thinnedPoints.push(pt);
     }
 
-    for (const pt of validNewPoints) {
+    for (const pt of thinnedPoints) {
         try {
             const url = `/api/v1/predict?lat=${pt.lat}&lon=${pt.lon}&region=${encodeURIComponent(pt.name)}&season=${season}`;
             const res = await fetch(url);
             if (res.ok) {
                 const data = await res.json();
                 if (data.predictions && data.predictions.length > 0) {
-                    plotDynamicMarker(pt.lat, pt.lon, data.predictions[0], pt.name);
+                    const topThreat = data.predictions[0];
+                    
+                    let isTooClose = false;
+                    for (const cachedPt of plottedMarkersCache) {
+                        if (cachedPt.type === topThreat.disaster_type) {
+                            const distance = Math.sqrt(Math.pow(pt.lat - cachedPt.lat, 2) + Math.pow(pt.lon - cachedPt.lon, 2));
+                            if (distance < MIN_DISTANCE_THRESHOLD) {
+                                isTooClose = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!isTooClose) {
+                        let finalLat = pt.lat;
+                        let finalLon = pt.lon;
+
+                        for (const cachedPt of plottedMarkersCache) {
+                             if (Math.abs(pt.lat - cachedPt.lat) < 0.02 && Math.abs(pt.lon - cachedPt.lon) < 0.02) {
+                                 finalLat += 0.025; 
+                                 finalLon += 0.025; 
+                                 break;
+                             }
+                        }
+                        
+                        plottedMarkersCache.push({ lat: finalLat, lon: finalLon, type: topThreat.disaster_type }); 
+                        plotDynamicMarker(finalLat, finalLon, topThreat, pt.name);
+                    }
                 }
             }
         } catch (err) {
@@ -265,7 +297,7 @@ function plotDynamicMarker(lat, lon, topThreat, cityName) {
         });
 
         let finalName = cityName;
-        let directionPrefix = "";
+        directionPrefix = getCompassDirection(lat, lon, geoData.boundingbox);
         
         try {
             const geo = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&accept-language=en`);
