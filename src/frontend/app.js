@@ -13,13 +13,18 @@ async function updateSidebarRegion(lat, lon) {
     if (panel.innerHTML.includes("Season:")) return; 
 
     try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&accept-language=en`);
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=8&accept-language=en`);
         if (res.ok) {
             const data = await res.json();
             if (data.address) {
-                currentRegionName = data.address.county || data.address.municipality || data.address.state_district || data.address.state || "Regional View";
+                currentRegionName = data.address.sea || 
+                                    data.address.ocean || 
+                                    data.address.county || 
+                                    data.address.state_district || 
+                                    data.address.state || 
+                                    "Uncharted Marine Sector";
             } else {
-                currentRegionName = "Marine / Uncharted Sector";
+                currentRegionName = "Marine Sector";
             }
         }
     } catch (err) {
@@ -60,7 +65,7 @@ async function initApp() {
     map.on('moveend', () => {
         isMarkerClick = false; 
     });
-    
+
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
         attribution: '© OpenStreetMap, © CARTO', noWrap: true, bounds: bounds
     }).addTo(map);
@@ -194,17 +199,17 @@ async function scanVisibleArea() {
             const geoCheck = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${center.lat}&lon=${center.lng}&zoom=10`);
             const geoData = await geoCheck.json();
             
-            if (!geoData.error) {
+            if (geoData.address && (geoData.address.county || geoData.address.municipality || geoData.address.city || geoData.address.state_district)) {
                 rawPoints.push({ 
                     lat: parseFloat(center.lat), 
                     lon: parseFloat(center.lng), 
                     name: geoData.address.county || geoData.address.municipality || "Regional Sector" 
                 });
             } else {
-                console.log("Fallback aborted: Center point is over water or invalid.");
+                console.log("Scan aborted: Center point is over water or lacks land administration.");
             }
         } catch (err) {
-            console.warn("Complete network failure. Aborting scan.");
+            console.warn("Network failure during fallback check.");
         }
     }
 
