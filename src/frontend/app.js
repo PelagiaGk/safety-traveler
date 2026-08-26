@@ -233,7 +233,17 @@ function plotDynamicMarker(lat, lon, topThreat, cityName) {
     const borderColor = risk === 'high' ? '#ef4444' : risk === 'medium' ? '#f59e0b' : '#10b981';
 
     const icon = L.divIcon({
-        html: `<div style="background: white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 16px; border: 3px solid ${borderColor}; box-shadow: 0 2px 5px rgba(0,0,0,0.15); cursor: pointer;" title="${cityName} Region: ${probability}% ${topThreat.disaster_type}">${emoji}</div>`,
+        html: `<div style="background: white; 
+        border-radius: 50%; 
+        width: 28px; 
+        height: 28px; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        font-size: 16px; 
+        border: 3px solid ${borderColor}; 
+        box-shadow: 0 2px 5px rgba(0,0,0,0.15); 
+        cursor: pointer;" title="Regional Alert: ${probability}% ${topThreat.disaster_type}">${emoji}</div>`,
         className: '', iconSize: [28, 28], iconAnchor: [14, 14]
     });
 
@@ -243,19 +253,59 @@ function plotDynamicMarker(lat, lon, topThreat, cityName) {
         isMarkerClick = true;
         map.flyTo([lat, lon], 11, { duration: 1.2 }); 
         
+        displayDetails({
+            locality: "⏳ Resolving Region...", 
+            disaster_type: topThreat.disaster_type,
+            risk_level: risk,
+            emoji: emoji,
+            primary_reason: `Live ML forecast indicates a ${probability}% probability for ${topThreat.disaster_type} in the surrounding area.`,
+            dynamic_precautions: ["Monitor local meteorological bulletins and regional safety warnings."]
+        });
+
         let finalName = cityName;
-        if (finalName === "Scanned Sector") {
-            try {
-                const geo = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
-                const geoData = await geo.json();
-                if (geoData.address) {
-                    finalName = geoData.address.city || geoData.address.town || geoData.address.village || finalName;
+        let directionPrefix = "";
+        
+        try {
+            const geo = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&accept-language=en`);
+            const geoData = await geo.json();
+            
+            if (geoData.address) {
+                finalName = geoData.address.county || geoData.address.municipality || geoData.address.state_district || geoData.address.state || finalName;
+                
+                if (geoData.boundingbox) {
+                    const latMin = parseFloat(geoData.boundingbox[0]);
+                    const latMax = parseFloat(geoData.boundingbox[1]);
+                    const lonMin = parseFloat(geoData.boundingbox[2]);
+                    const lonMax = parseFloat(geoData.boundingbox[3]);
+
+                    const latThird = (latMax - latMin) / 3;
+                    const lonThird = (lonMax - lonMin) / 3;
+
+                    let v = ""; 
+                    let h = "";
+
+                    if (lat >= latMax - latThird) v = "North";
+                    else if (lat <= latMin + latThird) v = "South";
+
+                    if (lon >= lonMax - lonThird) h = "East";
+                    else if (lon <= lonMin + lonThird) h = "West";
+
+                    
+                    if (v && h) {
+                        directionPrefix = `${v}${h.toLowerCase()} `;
+                    } else if (v || h) {
+                        directionPrefix = `${v || h} `;
+                    } else {
+                        directionPrefix = "Central ";
+                    }
                 }
-            } catch (err) {} 
-        }
+            }
+        } catch (err) {
+            console.warn("Failed to resolve regional name.");
+        } 
 
         displayDetails({
-            locality: finalName + " (Regional Radius)", 
+            locality: `${directionPrefix}${finalName} (Radius)`, 
             disaster_type: topThreat.disaster_type,
             risk_level: risk,
             emoji: emoji,
