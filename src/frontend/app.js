@@ -81,7 +81,7 @@ async function updateSidebarRegion(lat, lon) {
     if (panel.innerHTML.includes("Season:")) return; 
 
     try {
-        const res = await fetch(`[https://nominatim.openstreetmap.org/reverse?format=json&lat=$](https://nominatim.openstreetmap.org/reverse?format=json&lat=$){lat}&lon=${lon}&zoom=8&accept-language=en`);
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=8&accept-language=en`);
         if (!res.ok) throw new Error("Rate Limited"); 
         
         const data = await res.json();
@@ -159,7 +159,7 @@ async function scanVisibleArea() {
     if (!apiSucceeded && rawPoints.length === 0) {
         const center = bounds.getCenter();
         try {
-            const geoCheck = await fetch(`[https://nominatim.openstreetmap.org/reverse?format=json&lat=$](https://nominatim.openstreetmap.org/reverse?format=json&lat=$){center.lat}&lon=${center.lng}&zoom=10`);
+            const geoCheck = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${center.lat}&lon=${center.lng}&zoom=10`);
             if (!geoCheck.ok) throw new Error("Rate Limited");
             const geoData = await geoCheck.json();
             
@@ -186,7 +186,7 @@ async function scanVisibleArea() {
             name: "Unresolved Region (API Offline)"
         });
     }
-    
+
     const validNewPoints = [];
     for (const pt of rawPoints) {
         let isTooClose = false;
@@ -268,7 +268,7 @@ function plotDynamicMarker(lat, lon, topThreat, cityName) {
         let directionPrefix = "";
         
         try {
-            const geo = await fetch(`[https://nominatim.openstreetmap.org/reverse?format=json&lat=$](https://nominatim.openstreetmap.org/reverse?format=json&lat=$){lat}&lon=${lon}&zoom=10&accept-language=en`);
+            const geo = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&accept-language=en`);
             if (!geo.ok) throw new Error("Rate Limited");
             const geoData = await geo.json();
             
