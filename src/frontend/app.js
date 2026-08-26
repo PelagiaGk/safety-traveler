@@ -10,7 +10,7 @@ let currentRegionName = "Regional View";
 async function updateSidebarRegion(lat, lon) {
     const panel = document.getElementById('info-panel');
     
-    if (panel.innerHTML.includes("📍")) return; 
+    if (panel.innerHTML.includes("Season:")) return; 
 
     try {
         const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&accept-language=en`);
@@ -18,12 +18,15 @@ async function updateSidebarRegion(lat, lon) {
             const data = await res.json();
             if (data.address) {
                 currentRegionName = data.address.county || data.address.municipality || data.address.state_district || data.address.state || "Regional View";
+            } else {
+                currentRegionName = "Marine / Uncharted Sector";
             }
         }
     } catch (err) {
+        currentRegionName = "Regional View"; 
     }
 
-    if (!panel.innerHTML.includes("📍")) {
+    if (!panel.innerHTML.includes("Season:")) {
         panel.innerHTML = `
             <div class="info-card low">
                 <h3>🌍 ${currentRegionName}</h3>
@@ -43,7 +46,21 @@ function getCurrentSeason() {
 async function initApp() {
     const bounds = L.latLngBounds(L.latLng(-90, -180), L.latLng(90, 180));
     map = L.map('map', { center: [39.0, 22.0], zoom: 6, minZoom: 3, maxBounds: bounds });
+    map.on('dragstart', resetSidebar);
+    map.on('zoomstart', resetSidebar);
 
+    function resetSidebar() {
+        if (!isMarkerClick) { 
+            const panel = document.getElementById('info-panel');
+            if (panel.innerHTML.includes("Season:")) { 
+                panel.innerHTML = '<div class="info-card low"><p style="color: #64748b;">📡 Scanning new area...</p></div>';
+            }
+        }
+    }
+    map.on('moveend', () => {
+        isMarkerClick = false; 
+    });
+    
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
         attribution: '© OpenStreetMap, © CARTO', noWrap: true, bounds: bounds
     }).addTo(map);
