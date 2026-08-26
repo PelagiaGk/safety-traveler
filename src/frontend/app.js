@@ -176,7 +176,17 @@ async function scanVisibleArea() {
             console.warn("Network failure during fallback check.");
         }
     }
-
+    
+    if (rawPoints.length === 0) {
+        const center = bounds.getCenter();
+        console.warn("All external mapping APIs failed or blocked. Forcing a scan at screen center.");
+        rawPoints.push({
+            lat: parseFloat(center.lat),
+            lon: parseFloat(center.lng),
+            name: "Unresolved Region (API Offline)"
+        });
+    }
+    
     const validNewPoints = [];
     for (const pt of rawPoints) {
         let isTooClose = false;
