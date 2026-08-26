@@ -137,11 +137,12 @@ async function scanVisibleArea() {
     const e = bounds.getEast().toFixed(4);
 
     let rawPoints = [];
+    let apiSucceeded = false;
 
     if (!overpassCircuitTripped) {
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 2000);
+            const timeoutId = setTimeout(() => controller.abort(), 2000); 
 
             const query = `[out:json][timeout:2];node["place"~"city|town"](${s},${w},${n},${e});out 8;`;
             const overpassRes = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`, {
@@ -151,6 +152,7 @@ async function scanVisibleArea() {
             clearTimeout(timeoutId);
 
             if (overpassRes.ok) {
+                apiSucceeded = true; 
                 const cityData = await overpassRes.json();
                 if (cityData.elements && cityData.elements.length > 0) {
                     cityData.elements.forEach(city => {
@@ -168,15 +170,10 @@ async function scanVisibleArea() {
         }
     }
 
-    if (rawPoints.length === 0) {
+    if (!apiSucceeded && rawPoints.length === 0) {
         const zoom = map.getZoom();
-        
         if (zoom >= 9) {
-            rawPoints.push({ 
-                lat: parseFloat(bounds.getCenter().lat), 
-                lon: parseFloat(bounds.getCenter().lng), 
-                name: "Regional Sector" 
-            });
+            rawPoints.push({ lat: parseFloat(bounds.getCenter().lat), lon: parseFloat(bounds.getCenter().lng), name: "Regional Sector" });
         } else {
             rawPoints.push({ 
                 lat: parseFloat(bounds.getSouth() + (bounds.getNorth() - bounds.getSouth()) / 2), 
