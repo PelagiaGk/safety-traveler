@@ -206,3 +206,61 @@ h2 { margin: 0;
 .leaflet-container {
     background-color: #9ad3f0 !important; 
 }
+
+.leaflet-bar {
+    border: none !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1) !important;
+    border-radius: 10px !important;
+    overflow: hidden;
+}
+
+.leaflet-bar a {
+    background-color: #ffffff !important;
+    color: #2c3e50 !important;
+    transition: background-color 0.2s ease, color 0.2s ease !important;
+}
+
+.leaflet-bar a:hover {
+    background-color: #f8f9fa !important;
+    color: #007bff !important;
+}
+
+.leaflet-popup-content-wrapper {
+    border-radius: 12px !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+    border: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.leaflet-popup-content {
+    margin: 16px !important;
+    line-height: 1.5;
+}
+
+.info-card, 
+#info-panel {
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+}
+
+.info-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+}
+
+select, 
+input {
+    border-radius: 8px !important;
+    border: 1px solid #dfe6e9 !important;
+    padding: 8px 12px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    cursor: pointer;
+}
+
+select:focus, 
+input:focus {
+    border-color: #74b9ff !important;
+    box-shadow: 0 0 0 3px rgba(116, 185, 255, 0.2) !important;
+    outline: none;
+}
