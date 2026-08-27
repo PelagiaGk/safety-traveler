@@ -68,19 +68,16 @@ function getCompassDirection(lat, lon, geoData) {
     const lats = [parseFloat(geoData.boundingbox[0]), parseFloat(geoData.boundingbox[1])].sort((a,b) => a - b);
     const lons = [parseFloat(geoData.boundingbox[2]), parseFloat(geoData.boundingbox[3])].sort((a,b) => a - b);
 
-    const latMin = lats[0], latMax = lats[1];
-    const lonMin = lons[0], lonMax = lons[1];
-
-    const latSpan = latMax - latMin;
-    const lonSpan = lonMax - lonMin;
+    const latSpan = lats[1] - lats[0];
+    const lonSpan = lons[1] - lons[0];
 
     if (latSpan < 0.005 || lonSpan < 0.005) return "";
 
-    const boxCenterLat = latMin + (latSpan / 2);
-    const boxCenterLon = lonMin + (lonSpan / 2);
+    const boxCenterLat = lats[0] + (latSpan / 2);
+    const boxCenterLon = lons[0] + (lonSpan / 2);
 
-    const latDeadzone = latSpan / 6; 
-    const lonDeadzone = lonSpan / 6;
+    const latDeadzone = latSpan / 5; 
+    const lonDeadzone = lonSpan / 5;
 
     let v = "", h = "";
     
@@ -90,8 +87,8 @@ function getCompassDirection(lat, lon, geoData) {
     if (targetLon > boxCenterLon + lonDeadzone) h = "East";
     else if (targetLon < boxCenterLon - lonDeadzone) h = "West";
 
-    if (v && h) return `${v}${h.toLowerCase()} `;
-    if (v || h) return `${v || h} `;
+    if (v && h) return `${v}${h.toLowerCase()}ern `;
+    if (v || h) return `${v || h}ern `;
     return "Central ";
 }
 
@@ -380,18 +377,33 @@ function plotDynamicMarker(lat, lon, topThreat, cityName) {
         try {
             await new Promise(resolve => setTimeout(resolve, 1300));
 
-            const geo = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=8&accept-language=en`);
+            const currentZoom = map.getZoom();
+            let nomZoom = 10;
+            if (currentZoom < 5) nomZoom = 3;      
+            else if (currentZoom < 7) nomZoom = 5; 
+            else if (currentZoom < 9) nomZoom = 8;
+
+            const geo = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=${nomZoom}&accept-language=en`);
             
             if (geo.ok) {
                 const geoData = await geo.json();
                 if (geoData.address) {
-                    finalName = geoData.address.county || geoData.address.municipality || geoData.address.state_district || geoData.address.state || finalName;
+                    const addr = geoData.address;
+
+                    if (currentZoom < 5) {
+                        finalName = addr.country || "International Space";
+                    } else if (currentZoom < 7) {
+                        finalName = addr.state || addr.region || addr.province || addr.country || finalName;
+                    } else {
+                        finalName = addr.county || addr.district || addr.state_district || addr.municipality || addr.city || addr.state || addr.country || finalName;
+                    }
+                    
                     directionPrefix = getCompassDirection(lat, lon, geoData);
                 }
             }
         } catch (err) {
-            console.warn("Failed to resolve regional name on click. Using fallback.");
-        } 
+            console.warn("Failed to resolve regional name on click.");
+        }
 
         displayDetails({
             locality: `${directionPrefix}${finalName} (Radius)`, 
