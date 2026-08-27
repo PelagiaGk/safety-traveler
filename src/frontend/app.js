@@ -108,14 +108,27 @@ function displayDetails(data) {
 
 async function updateSidebarRegion(lat, lon) {
     const panel = document.getElementById('info-panel');
+    
     if (panel.innerHTML.includes("Season:")) return; 
 
+    const currentZoom = map.getZoom();
+    let nomZoom = 10; 
+    if (currentZoom < 5) nomZoom = 3;      
+    else if (currentZoom < 7) nomZoom = 5; 
+    else if (currentZoom < 9) nomZoom = 8;
+
     try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=8&accept-language=en`);
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=${nomZoom}&accept-language=en`);
         if (res.ok) {
             const data = await res.json();
             if (data.address) {
-                let baseName = data.address.sea || data.address.ocean || data.address.county || data.address.state_district || data.address.state || "Uncharted Marine Sector";
+                let baseName = data.address.sea || 
+                               data.address.ocean || 
+                               data.address.county || 
+                               data.address.state_district || 
+                               data.address.state || 
+                               data.address.country || 
+                               "Uncharted Marine Sector";
                 
                 let prefix = getCompassDirection(lat, lon, data.boundingbox);
                 currentRegionName = prefix + baseName;
@@ -128,7 +141,11 @@ async function updateSidebarRegion(lat, lon) {
     }
 
     if (!panel.innerHTML.includes("Season:")) {
-        panel.innerHTML = `<div class="info-card low"><h3>🌍 ${currentRegionName}</h3><p>Select a marker in this area to view detailed local forecasts.</p></div>`;
+        panel.innerHTML = `
+            <div class="info-card low">
+                <h3>🌍 ${currentRegionName}</h3>
+                <p>Select a marker in this area to view detailed local forecasts.</p>
+            </div>`;
     }
 }
 
