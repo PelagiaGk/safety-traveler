@@ -204,7 +204,7 @@ h2 { margin: 0;
 }
 
 .leaflet-container {
-    background-color: #d8ebf7 !important; 
+    background-color: #c9e4f4 !important; 
 }
 
 .leaflet-bar {
@@ -234,6 +234,11 @@ h2 { margin: 0;
 .leaflet-popup-content {
     margin: 16px !important;
     line-height: 1.5;
+}
+
+.leaflet-tile-pane {
+    filter: saturate(0.5) contrast(0.9) brightness(1.05) sepia(0.1);
+    transition: filter 0.3s ease;
 }
 
 .info-card, 
