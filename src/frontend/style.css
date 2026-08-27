@@ -51,47 +51,52 @@ body, button, input, select, textarea,
     left: 50%;
     transform: translateX(-50%);
     display: flex;
-    gap: 12px;
+    gap: 16px;
     align-items: center;
     z-index: 1000;
 }
 
-.region-indicator, .search-container {
+.search-container, .region-indicator {
     pointer-events: auto;
-    background: rgba(255, 255, 255, 0.88);
+    background: rgba(255, 255, 255, 0.9);
     backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     border: 1px solid rgba(255, 255, 255, 0.6);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
     border-radius: 30px;
     padding: 10px 18px;
     display: flex;
     align-items: center;
     font-size: 14px;
+    height: 46px; 
 }
 
 .region-indicator {
     font-weight: 600;
     white-space: nowrap;
+    color: #1e293b;
+    min-width: 180px;
+    justify-content: center;
 }
 
 .search-container input {
     border: none;
     background: transparent;
-    margin-left: 8px;
+    margin: 0 8px;
     outline: none;
     width: 150px;
     transition: width 0.3s ease;
+    font-family: inherit;
+    font-weight: 500;
 }
 
 .search-container:focus-within input {
     width: 220px;
 }
 
-.search-icon {
-    font-size: 14px;
-    opacity: 0.6;
-    margin-left: 6px;
-}
+.search-icon.globe { font-size: 16px; }
+.search-icon.glass { font-size: 14px; opacity: 0.6; cursor: pointer; }
+.pin-icon { margin-right: 6px; }
 
 .custom-emoji-icon-container {
     background: transparent;

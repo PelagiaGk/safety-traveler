@@ -173,6 +173,12 @@ function buildPopupCard(data, lat, lon) {
 }
 
 async function updateRegionMeta(lat, lon) {
+    const regionTextEl = document.getElementById('regionText');
+    
+    if (regionTextEl) {
+        regionTextEl.innerHTML = `<span style="opacity: 0.5;">Scanning Area...</span>`;
+    }
+
     const currentZoom = map.getZoom();
     let nomZoom = 10;
     if (currentZoom < 5) nomZoom = 3;
@@ -180,34 +186,40 @@ async function updateRegionMeta(lat, lon) {
     else if (currentZoom < 9) nomZoom = 8;
 
     try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=${nomZoom}&accept-language=en`);
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=${nomZoom}&accept-language=en`, {
+            headers: {
+                'Accept': 'application/json',
+                'User-Agent': 'Public-Safety-Dashboard/1.0'
+            }
+        });
+        
         if (res.ok) {
             const data = await res.json();
             if (data.address) {
                 const addr = data.address;
                 let baseName = "Uncharted Sector";
 
-                if (currentZoom < 5) {
-                    baseName = addr.country || "International Space";
-                } else if (currentZoom < 7) {
-                    baseName = addr.state || addr.region || addr.province || addr.country || "Regional Sector";
-                } else {
-                    baseName = addr.county || addr.district || addr.state_district || addr.municipality || addr.city || addr.state || addr.country || "Local Sector";
-                }
+                if (currentZoom < 5) baseName = addr.country || "International Space";
+                else if (currentZoom < 7) baseName = addr.state || addr.region || addr.province || addr.country || "Regional Sector";
+                else baseName = addr.county || addr.district || addr.state_district || addr.municipality || addr.city || addr.state || addr.country || "Local Sector";
 
-                if (addr.ocean || addr.sea || addr.water) {
-                    baseName = addr.ocean || addr.sea || addr.water;
-                }
+                if (addr.ocean || addr.sea || addr.water) baseName = addr.ocean || addr.sea || addr.water;
 
                 const prefix = getCompassDirection(lat, lon, data);
                 currentRegionName = prefix + baseName;
             } else {
                 currentRegionName = "Marine Sector";
             }
+        } else {
+            currentRegionName = "Regional View";
         }
     } catch (err) {
+        console.warn("Geocoding failed, falling back to default region name.");
         currentRegionName = "Regional View";
-        document.getElementById('regionText').innerText = currentRegionName;
+    }
+
+    if (regionTextEl) {
+        regionTextEl.innerText = currentRegionName;
     }
 }
 
