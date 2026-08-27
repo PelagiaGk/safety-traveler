@@ -112,20 +112,16 @@ async function updateSidebarRegion(lat, lon) {
 
     const currentZoom = map.getZoom();
     let nomZoom = 10; 
-    if (currentZoom < 5) {
-        baseName = addr.country || "International Space";
-    } else if (currentZoom < 7) {
-        baseName = addr.state || addr.region || addr.province || addr.country || "Regional Sector";
-    } else {
-        baseName = addr.county || addr.district || addr.state_district || addr.municipality || addr.city || addr.state || addr.country || "Local Sector";
-    }            
+    if (currentZoom < 5) nomZoom = 3;      
+    else if (currentZoom < 7) nomZoom = 5; 
+    else if (currentZoom < 9) nomZoom = 8; 
 
     try {
         const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=${nomZoom}&accept-language=en`);
         if (res.ok) {
             const data = await res.json();
             if (data.address) {
-                const addr = data.address;
+                const addr = data.address; 
                 let baseName = "Uncharted Sector";
 
                 if (currentZoom < 5) {
@@ -133,7 +129,7 @@ async function updateSidebarRegion(lat, lon) {
                 } else if (currentZoom < 7) {
                     baseName = addr.state || addr.region || addr.province || addr.country || "Regional Sector";
                 } else {
-                    baseName = addr.county || addr.district || addr.state_district || addr.municipality || addr.city || addr.state || "Local Sector";
+                    baseName = addr.county || addr.district || addr.state_district || addr.municipality || addr.city || addr.state || addr.country || "Local Sector";
                 }
 
                 if (addr.ocean || addr.sea || addr.water) {
