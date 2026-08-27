@@ -60,21 +60,23 @@ function getCurrentSeason() {
 }
 
 function getCompassDirection(lat, lon, geoData) {
-    if (!geoData || !geoData.boundingbox) return "";
+    if (!geoData || !geoData.boundingbox || geoData.boundingbox.length < 4) return "";
 
     const targetLat = parseFloat(lat);
     const targetLon = parseFloat(lon);
 
-    const lats = [parseFloat(geoData.boundingbox[0]), parseFloat(geoData.boundingbox[1])].sort((a,b) => a - b);
-    const lons = [parseFloat(geoData.boundingbox[2]), parseFloat(geoData.boundingbox[3])].sort((a,b) => a - b);
+    const southLat = parseFloat(geoData.boundingbox[0]);
+    const northLat = parseFloat(geoData.boundingbox[1]);
+    const westLon  = parseFloat(geoData.boundingbox[2]);
+    const eastLon  = parseFloat(geoData.boundingbox[3]);
 
-    const latSpan = lats[1] - lats[0];
-    const lonSpan = lons[1] - lons[0];
+    const latSpan = northLat - southLat;
+    const lonSpan = eastLon - westLon;
 
     if (latSpan < 0.005 || lonSpan < 0.005) return "";
 
-    const boxCenterLat = lats[0] + (latSpan / 2);
-    const boxCenterLon = lons[0] + (lonSpan / 2);
+    const boxCenterLat = southLat + (latSpan / 2);
+    const boxCenterLon = westLon + (lonSpan / 2);
 
     const latDeadzone = latSpan / 5; 
     const lonDeadzone = lonSpan / 5;
