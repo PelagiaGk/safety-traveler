@@ -70,15 +70,15 @@ function getCompassDirection(lat, lon, boundingbox) {
 
     if (latMax - latMin < 0.001 || lonMax - lonMin < 0.001) return "";
 
-    const latThird = (latMax - latMin) / 3;
-    const lonThird = (lonMax - lonMin) / 3;
+    const latEdge = (latMax - latMin) / 4;
+    const lonEdge = (lonMax - lonMin) / 4;
 
     let v = "", h = "";
-    if (lat >= latMax - latThird) v = "North";
-    else if (lat <= latMin + latThird) v = "South";
+    if (lat >= latMax - latEdge) v = "North";
+    else if (lat <= latMin + latEdge) v = "South";
 
-    if (lon >= lonMax - lonThird) h = "East";
-    else if (lon <= lonMin + lonThird) h = "West";
+    if (lon >= lonMax - lonEdge) h = "East";
+    else if (lon <= lonMin + lonEdge) h = "West";
 
     if (v && h) return `${v}${h.toLowerCase()} `;
     if (v || h) return `${v || h} `;
@@ -108,27 +108,33 @@ function displayDetails(data) {
 
 async function updateSidebarRegion(lat, lon) {
     const panel = document.getElementById('info-panel');
-    
     if (panel.innerHTML.includes("Season:")) return; 
 
     const currentZoom = map.getZoom();
     let nomZoom = 10; 
     if (currentZoom < 5) nomZoom = 3;      
     else if (currentZoom < 7) nomZoom = 5; 
-    else if (currentZoom < 9) nomZoom = 8;
+    else if (currentZoom < 9) nomZoom = 8; 
 
     try {
         const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=${nomZoom}&accept-language=en`);
         if (res.ok) {
             const data = await res.json();
             if (data.address) {
-                let baseName = data.address.sea || 
-                               data.address.ocean || 
-                               data.address.county || 
-                               data.address.state_district || 
-                               data.address.state || 
-                               data.address.country || 
-                               "Uncharted Marine Sector";
+                const addr = data.address;
+                let baseName = "Uncharted Sector";
+
+                if (currentZoom < 5) {
+                    baseName = addr.country || "International Space";
+                } else if (currentZoom < 7) {
+                    baseName = addr.state || addr.region || addr.province || addr.country || "Regional Sector";
+                } else {
+                    baseName = addr.county || addr.district || addr.state_district || addr.municipality || addr.city || addr.state || "Local Sector";
+                }
+
+                if (addr.ocean || addr.sea || addr.water) {
+                    baseName = addr.ocean || addr.sea || addr.water;
+                }
                 
                 let prefix = getCompassDirection(lat, lon, data.boundingbox);
                 currentRegionName = prefix + baseName;
