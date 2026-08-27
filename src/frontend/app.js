@@ -20,14 +20,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
     map = L.map('map', {
         maxBounds: worldBounds,
-        maxBoundsViscosity: 1.0 
+        maxBoundsViscosity: 1.0,
+        minZoom: 3 
     }).setView([38.0, 24.0], 6); 
     
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
         attribution: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, Esri Japan, METI, Esri China (Hong Kong), Esri (Thailand), TomTom, 2012',
         maxZoom: 19,
-        minZoom: 2,      
-        noWrap: true     
+        minZoom: 3,       
+        noWrap: true,
+        bounds: worldBounds 
     }).addTo(map);
 
     markersClusterGroup = L.featureGroup().addTo(map); 

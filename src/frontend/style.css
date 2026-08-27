@@ -1,3 +1,19 @@
+body, 
+button, 
+input, 
+select, 
+textarea,
+.leaflet-container, 
+.leaflet-popup-content, 
+.leaflet-tooltip {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+}
+
+* {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
 body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #2c3e50; overflow: hidden; }
 
 #sidebar { 
@@ -180,4 +196,8 @@ h2 { margin: 0;
     font-weight: bold;
     padding: 2px 5px;
     border: 2px solid white;
+}
+
+.leaflet-container {
+    background-color: #9ad3f0 !important; 
 }
