@@ -60,32 +60,35 @@ function getCurrentSeason() {
 }
 
 function getCompassDirection(lat, lon, geoData) {
-    if (!geoData || !geoData.boundingbox || !geoData.lat || !geoData.lon) return "";
+    if (!geoData || !geoData.boundingbox) return "";
 
     const targetLat = parseFloat(lat);
     const targetLon = parseFloat(lon);
-    
-    const centerLat = parseFloat(geoData.lat);
-    const centerLon = parseFloat(geoData.lon);
 
     const lats = [parseFloat(geoData.boundingbox[0]), parseFloat(geoData.boundingbox[1])].sort((a,b) => a - b);
     const lons = [parseFloat(geoData.boundingbox[2]), parseFloat(geoData.boundingbox[3])].sort((a,b) => a - b);
 
-    const latSpan = lats[1] - lats[0];
-    const lonSpan = lons[1] - lons[0];
+    const latMin = lats[0], latMax = lats[1];
+    const lonMin = lons[0], lonMax = lons[1];
+
+    const latSpan = latMax - latMin;
+    const lonSpan = lonMax - lonMin;
 
     if (latSpan < 0.005 || lonSpan < 0.005) return "";
+
+    const boxCenterLat = latMin + (latSpan / 2);
+    const boxCenterLon = lonMin + (lonSpan / 2);
 
     const latDeadzone = latSpan / 6; 
     const lonDeadzone = lonSpan / 6;
 
     let v = "", h = "";
     
-    if (targetLat > centerLat + latDeadzone) v = "North";
-    else if (targetLat < centerLat - latDeadzone) v = "South";
+    if (targetLat > boxCenterLat + latDeadzone) v = "North";
+    else if (targetLat < boxCenterLat - latDeadzone) v = "South";
 
-    if (targetLon > centerLon + lonDeadzone) h = "East";
-    else if (targetLon < centerLon - lonDeadzone) h = "West";
+    if (targetLon > boxCenterLon + lonDeadzone) h = "East";
+    else if (targetLon < boxCenterLon - lonDeadzone) h = "West";
 
     if (v && h) return `${v}${h.toLowerCase()} `;
     if (v || h) return `${v || h} `;
