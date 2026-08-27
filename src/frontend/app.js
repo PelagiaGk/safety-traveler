@@ -143,7 +143,7 @@ async function updateSidebarRegion(lat, lon) {
                     baseName = addr.ocean || addr.sea || addr.water;
                 }
                 
-                let prefix = getCompassDirection(lat, lon, data.boundingbox);
+                let prefix = getCompassDirection(lat, lon, data);
                 currentRegionName = prefix + baseName;
             } else {
                 currentRegionName = "Marine Sector";
@@ -383,8 +383,7 @@ function plotDynamicMarker(lat, lon, topThreat, cityName) {
                 const geoData = await geo.json();
                 if (geoData.address) {
                     finalName = geoData.address.county || geoData.address.municipality || geoData.address.state_district || geoData.address.state || finalName;
-                    
-                    directionPrefix = getCompassDirection(lat, lon, geoData.boundingbox);
+                    directionPrefix = getCompassDirection(lat, lon, geoData);
                 }
             }
         } catch (err) {
