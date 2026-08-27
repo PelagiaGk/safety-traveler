@@ -221,7 +221,7 @@ h2 { margin: 0;
 }
 
 .leaflet-tile-pane {
-    filter: brightness(0.85) contrast(1.15) saturate(1.4) sepia(0.15);
+    filter: brightness(0.65) contrast(1.1) saturate(1.2) sepia(0.50) hue-rotate(-5deg);
     transition: filter 0.3s ease;
 }
 
