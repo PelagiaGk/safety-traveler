@@ -249,11 +249,6 @@ h2 { margin: 0;
     line-height: 1.5;
 }
 
-.leaflet-tile-pane {
-    filter: saturate(0.9) contrast(0.95);
-    transition: filter 0.3s ease;
-}
-
 select, 
 input {
     border-radius: 8px !important;
