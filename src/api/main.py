@@ -9,6 +9,7 @@ from fastapi import FastAPI, Query, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 if str(BASE_DIR) not in sys.path:
@@ -19,6 +20,7 @@ from src.models.inference import DisasterPredictor
 from src.data.schemas import SeasonEnum
 
 app = FastAPI(title="Safety Traveler API", page_icon= "🌍")
+app.mount("/src/frontend", StaticFiles(directory="src/frontend"), name="frontend")
 
 app.add_middleware(
     CORSMiddleware,
