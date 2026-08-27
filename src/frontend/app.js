@@ -35,25 +35,28 @@ document.addEventListener("DOMContentLoaded", () => {
 
     markersClusterGroup = L.featureGroup().addTo(map);
 
-    map.on('click', (e) => {
-        if (isMarkerClick) {
-            isMarkerClick = false;
-            return;
-        }
+    map.on('click', async (e) => {
+        if (isMarkerClick) { isMarkerClick = false; return; }
 
-        const emptyHtml = `
-            <div class="glass-popup empty-state">
-                <h3>Data says nothing to worry about! 🌿</h3>
-            </div>
-        `;
-
-        currentActivePopup = L.popup({
-            offset: [0, -5],
-            className: 'custom-glass-wrapper'
-        })
+        const popup = L.popup({ offset: [0, -5], className: 'custom-glass-wrapper' })
             .setLatLng(e.latlng)
-            .setContent(emptyHtml)
+            .setContent('<div class="glass-popup empty-state"><h3>📡 Analyzing ML data...</h3></div>')
             .openOn(map);
+
+        try {
+            const season = document.getElementById('season-filter')?.value || getCurrentSeason();
+            const res = await fetch(`/api/v1/predict?lat=${e.latlng.lat}&lon=${e.latlng.lng}&region=Local Sector&season=${season}`);
+            const data = await res.json();
+            
+            if (data.predictions && data.predictions[0] && parseInt(data.predictions[0].probability_percentage) >= 30) {
+                popup.close();
+                plotDynamicMarker(e.latlng.lat, e.latlng.lng, data.predictions[0], "User Selected Area");
+            } else {
+                popup.setContent('<div class="glass-popup empty-state"><h3>Data says nothing to worry about! 🌿</h3></div>');
+            }
+        } catch (err) {
+            popup.setContent('<div class="glass-popup empty-state"><h3>Data says nothing to worry about! 🌿</h3></div>');
+        }
     });
 
     map.on('moveend', () => {
@@ -204,6 +207,7 @@ async function updateRegionMeta(lat, lon) {
         }
     } catch (err) {
         currentRegionName = "Regional View";
+        document.getElementById('regionText').innerText = currentRegionName;
     }
 }
 
@@ -226,15 +230,15 @@ async function scanVisibleArea() {
             const timeoutId = setTimeout(() => controller.abort(), 2000);
 
             const currentZoom = map.getZoom();
-            let placeFilter = "city|town";
-            let nodeLimit = 25;
+            let placeFilter = "city|town|country|state"; 
+            let nodeLimit = 40;
 
-            if (currentZoom < 7) {
-                placeFilter = "city";
-                nodeLimit = 35;
+            if (currentZoom < 6) {
+                placeFilter = "country|state";
+                nodeLimit = 15;
             } else if (currentZoom >= 10) {
                 placeFilter = "city|town|village";
-                nodeLimit = 15;
+                nodeLimit = 20;
             }
 
             const query = `[out:json][timeout:2];node["place"~"${placeFilter}"](${s},${w},${n},${e});out ${nodeLimit};`;

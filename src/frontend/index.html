@@ -24,11 +24,19 @@
         <div id="map"></div>
 
         <div class="ui-layer">
-            <div class="search-container">
-                <input type="text" id="searchInput" placeholder="Search...">
-                <span class="search-icon">🔍</span>
+            <div class="top-nav-bar">
+                <div class="region-indicator">
+                    🌍 <span id="regionText">Scanning Area...</span>
+                </div>
+        
+                <div class="search-container">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="searchInput" placeholder="Search...">
+                </div>
             </div>
         </div>
+    </div>
+</div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

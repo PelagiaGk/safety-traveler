@@ -44,37 +44,47 @@ body, button, input, select, textarea,
     z-index: 1000;
 }
 
-.search-container {
-    pointer-events: auto;
+.top-nav-bar {
+    pointer-events: none;
     position: absolute;
     top: 24px;
-    right: 24px;
+    left: 50%;
+    transform: translateX(-50%);
     display: flex;
+    gap: 12px;
     align-items: center;
+    z-index: 1000;
+}
+
+.region-indicator, .search-container {
+    pointer-events: auto;
     background: rgba(255, 255, 255, 0.88);
     backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
     border: 1px solid rgba(255, 255, 255, 0.6);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
     border-radius: 30px;
     padding: 10px 18px;
-    width: 280px;
-    transition: box-shadow 0.2s ease, width 0.2s ease;
+    display: flex;
+    align-items: center;
+    font-size: 14px;
 }
 
-.search-container:focus-within {
-    width: 320px;
-    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.14);
+.region-indicator {
+    font-weight: 600;
+    white-space: nowrap;
 }
 
 .search-container input {
     border: none;
     background: transparent;
-    width: 100%;
-    font-size: 14px;
-    font-weight: 500;
+    margin-left: 8px;
     outline: none;
-    color: #1e293b;
+    width: 150px;
+    transition: width 0.3s ease;
+}
+
+.search-container:focus-within input {
+    width: 220px;
 }
 
 .search-icon {
