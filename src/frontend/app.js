@@ -194,8 +194,7 @@ async function scanVisibleArea() {
             
             const overpassRes = await fetch(`https://overpass-api.de/api/interpreter`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `data=${encodeURIComponent(query)}`,
+                body: query, 
                 signal: controller.signal
             });
             
