@@ -154,7 +154,13 @@ async function scanVisibleArea() {
             const timeoutId = setTimeout(() => controller.abort(), 2000); 
 
             const query = `[out:json][timeout:2];node["place"~"city|town"](${s},${w},${n},${e});out 8;`;
-            const overpassRes = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`, {
+            const overpassRes = await fetch(`https://overpass-api.de/api/interpreter`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Accept': 'application/json'
+                },
+                body: `data=${encodeURIComponent(query)}`,
                 signal: controller.signal
             });
             
