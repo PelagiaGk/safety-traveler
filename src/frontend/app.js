@@ -180,14 +180,14 @@ async function scanVisibleArea() {
 
             const currentZoom = map.getZoom();
             let placeFilter = "city|town";
-            let nodeLimit = 8;
+            let nodeLimit = 25;
 
             if (currentZoom < 7) {
                 placeFilter = "city"; 
-                nodeLimit = 20;       
+                nodeLimit = 35;       
             } else if (currentZoom >= 10) {
                 placeFilter = "city|town|village"; 
-                nodeLimit = 12;
+                nodeLimit = 15;
             }
 
             const query = `[out:json][timeout:2];node["place"~"${placeFilter}"](${s},${w},${n},${e});out ${nodeLimit};`;
@@ -260,58 +260,19 @@ async function scanVisibleArea() {
         });
     }
 
-    const thinnedPoints = [];
-    for (const pt of rawPoints) {
-        let isTooClose = thinnedPoints.some(tPt => Math.sqrt(Math.pow(pt.lat - tPt.lat, 2) + Math.pow(pt.lon - tPt.lon, 2)) < 0.05); 
-        if (!isTooClose) thinnedPoints.push(pt);
-    }
 
-    for (const pt of thinnedPoints) {
+    let predictionsList = [];
+    for (const pt of rawPoints) {
         try {
             const url = `/api/v1/predict?lat=${pt.lat}&lon=${pt.lon}&region=${encodeURIComponent(pt.name)}&season=${season}`;
             const res = await fetch(url);
             if (res.ok) {
                 const data = await res.json();
                 if (data.predictions && data.predictions.length > 0) {
-                    const topThreat = data.predictions[0];
-                    
-                    let isTooClose = false;
-                    for (const cachedPt of plottedMarkersCache) {
-                        if (cachedPt.type === topThreat.disaster_type) {
-                            const distance = Math.sqrt(Math.pow(pt.lat - cachedPt.lat, 2) + Math.pow(pt.lon - cachedPt.lon, 2));
-                            if (distance < MIN_DISTANCE_THRESHOLD) {
-                                isTooClose = true;
-                                break;
-                            }
-                        }
-                    }
-
-                    if (!isTooClose) {
-                        let finalLat = pt.lat;
-                        let finalLon = pt.lon;
-
-                        const naturalDisasters = ["Wildfire", "Flood", "Earthquake", "Drought"];
-                        if (naturalDisasters.includes(topThreat.disaster_type)) {
-                            const offset = (pt.name.length % 5 + 2) * 0.015; 
-                            const direction = pt.name.length % 4; 
-                            
-                            if (direction === 0) finalLat += offset;      
-                            else if (direction === 1) finalLon += offset; 
-                            else if (direction === 2) finalLat -= offset; 
-                            else finalLon -= offset;                     
-                        }
-
-                        for (const cachedPt of plottedMarkersCache) {
-                             if (Math.abs(finalLat - cachedPt.lat) < 0.02 && Math.abs(finalLon - cachedPt.lon) < 0.02) {
-                                 finalLat += 0.025; 
-                                 finalLon += 0.025; 
-                                 break;
-                             }
-                        }
-                        
-                        plottedMarkersCache.push({ lat: finalLat, lon: finalLon, type: topThreat.disaster_type }); 
-                        plotDynamicMarker(finalLat, finalLon, topThreat, pt.name);
-                    }
+                    predictionsList.push({
+                        ...pt,
+                        threat: data.predictions[0]
+                    });
                 }
             }
         } catch (err) {
@@ -319,8 +280,47 @@ async function scanVisibleArea() {
         }
     }
 
-    if (!panel.innerHTML.includes("📍") && !panel.innerHTML.includes("Season:")) {
-        panel.innerHTML = `<div class="info-card low"><h3>🌍 ${currentRegionName}</h3><p>Select a marker in this area to view detailed local forecasts.</p></div>`;
+    predictionsList.sort((a, b) => parseInt(b.threat.probability_percentage) - parseInt(a.threat.probability_percentage));
+
+    for (const pt of predictionsList) {
+        let isTooClose = false;
+        
+        for (const cachedPt of plottedMarkersCache) {
+            if (cachedPt.type === pt.threat.disaster_type) {
+                const distance = Math.sqrt(Math.pow(pt.lat - cachedPt.lat, 2) + Math.pow(pt.lon - cachedPt.lon, 2));
+                if (distance < MIN_DISTANCE_THRESHOLD) {
+                    isTooClose = true;
+                    break;
+                }
+            }
+        }
+
+        if (!isTooClose) {
+            let finalLat = pt.lat;
+            let finalLon = pt.lon;
+
+            const naturalDisasters = ["Wildfire", "Flood", "Earthquake", "Drought"];
+            if (naturalDisasters.includes(pt.threat.disaster_type)) {
+                const offset = (pt.name.length % 5 + 2) * 0.015; 
+                const direction = pt.name.length % 4; 
+                
+                if (direction === 0) finalLat += offset;      
+                else if (direction === 1) finalLon += offset; 
+                else if (direction === 2) finalLat -= offset; 
+                else finalLon -= offset;                      
+            }
+
+            for (const cachedPt of plottedMarkersCache) {
+                 if (Math.abs(finalLat - cachedPt.lat) < 0.02 && Math.abs(finalLon - cachedPt.lon) < 0.02) {
+                     finalLat += 0.025; 
+                     finalLon += 0.025; 
+                     break;
+                 }
+            }
+            
+            plottedMarkersCache.push({ lat: finalLat, lon: finalLon, type: pt.threat.disaster_type }); 
+            plotDynamicMarker(finalLat, finalLon, pt.threat, pt.name);
+        }
     }
 }
 
@@ -370,7 +370,7 @@ function plotDynamicMarker(lat, lon, topThreat, cityName) {
         try {
             await new Promise(resolve => setTimeout(resolve, 1300));
 
-            const geo = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&accept-language=en`);
+            const geo = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=8&accept-language=en`);
             
             if (geo.ok) {
                 const geoData = await geo.json();
