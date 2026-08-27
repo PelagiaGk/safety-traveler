@@ -61,10 +61,12 @@ function getCurrentSeason() {
 
 function getCompassDirection(lat, lon, boundingbox) {
     if (!boundingbox || boundingbox.length < 4) return "";
-    const latMin = parseFloat(boundingbox[0]);
-    const latMax = parseFloat(boundingbox[1]);
-    const lonMin = parseFloat(boundingbox[2]);
-    const lonMax = parseFloat(boundingbox[3]);
+
+    const lats = [parseFloat(boundingbox[0]), parseFloat(boundingbox[1])].sort((a,b) => a - b);
+    const lons = [parseFloat(boundingbox[2]), parseFloat(boundingbox[3])].sort((a,b) => a - b);
+
+    const latMin = lats[0], latMax = lats[1];
+    const lonMin = lons[0], lonMax = lons[1];
 
     if (latMax - latMin < 0.001 || lonMax - lonMin < 0.001) return "";
 
@@ -153,12 +155,23 @@ async function scanVisibleArea() {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 2000); 
 
-            const query = `[out:json][timeout:2];node["place"~"city|town"](${s},${w},${n},${e});out 8;`;
+            const currentZoom = map.getZoom();
+            let placeFilter = "city|town";
+            let nodeLimit = 8;
+
+            if (currentZoom < 7) {
+                placeFilter = "city"; 
+                nodeLimit = 20;       
+            } else if (currentZoom >= 10) {
+                placeFilter = "city|town|village"; 
+                nodeLimit = 12;
+            }
+
+            const query = `[out:json][timeout:2];node["place"~"${placeFilter}"](${s},${w},${n},${e});out ${nodeLimit};`;
+            
             const overpassRes = await fetch(`https://overpass-api.de/api/interpreter`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                },
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: `data=${encodeURIComponent(query)}`,
                 signal: controller.signal
             });
@@ -254,8 +267,19 @@ async function scanVisibleArea() {
                         let finalLat = pt.lat;
                         let finalLon = pt.lon;
 
+                        const naturalDisasters = ["Wildfire", "Flood", "Earthquake", "Drought"];
+                        if (naturalDisasters.includes(topThreat.disaster_type)) {
+                            const offset = (pt.name.length % 5 + 2) * 0.015; 
+                            const direction = pt.name.length % 4; 
+                            
+                            if (direction === 0) finalLat += offset;      
+                            else if (direction === 1) finalLon += offset; 
+                            else if (direction === 2) finalLat -= offset; 
+                            else finalLon -= offset;                     
+                        }
+
                         for (const cachedPt of plottedMarkersCache) {
-                             if (Math.abs(pt.lat - cachedPt.lat) < 0.02 && Math.abs(pt.lon - cachedPt.lon) < 0.02) {
+                             if (Math.abs(finalLat - cachedPt.lat) < 0.02 && Math.abs(finalLon - cachedPt.lon) < 0.02) {
                                  finalLat += 0.025; 
                                  finalLon += 0.025; 
                                  break;
