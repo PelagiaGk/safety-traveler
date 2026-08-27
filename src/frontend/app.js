@@ -9,7 +9,10 @@ const plottedMarkersCache = [];
 const MIN_DISTANCE_THRESHOLD = 0.25; 
 
 document.addEventListener("DOMContentLoaded", () => {
-    map = L.map('map').setView([38.0, 24.0], 6); 
+    if (map !== undefined && map !== null) {
+        map.remove();
+    }
+
     map = L.map('map').setView([38.0, 24.0], 6); 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors',
