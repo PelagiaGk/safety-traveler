@@ -279,9 +279,9 @@ function plotDynamicMarker(lat, lon, topThreat, cityName) {
     const borderColor = risk === 'high' ? '#ef4444' : risk === 'medium' ? '#f59e0b' : '#10b981';
 
     const icon = L.divIcon({
-        html: `<div style="background: white; 
-        border-radius: 50%; 
-        width: 28px; 
+        html: `<div style="background: white;
+        border-radius: 50%;
+        width: 28px;
         height: 28px; 
         display: flex; 
         align-items: center; 
@@ -289,7 +289,8 @@ function plotDynamicMarker(lat, lon, topThreat, cityName) {
         font-size: 16px; 
         border: 3px solid ${borderColor}; 
         box-shadow: 0 2px 5px rgba(0,0,0,0.15); 
-        cursor: pointer;" title="Regional Alert: ${probability}% ${topThreat.disaster_type}">${emoji}</div>`,
+        cursor: pointer;" 
+        title="Regional Alert: ${probability}% ${topThreat.disaster_type}">${emoji}</div>`,
         className: '', iconSize: [28, 28], iconAnchor: [14, 14]
     });
 
@@ -308,9 +309,6 @@ function plotDynamicMarker(lat, lon, topThreat, cityName) {
             dynamic_precautions: ["Monitor local meteorological bulletins and regional safety warnings."]
         });
 
-        let finalName = cityName;
-        directionPrefix = getCompassDirection(lat, lon, geoData.boundingbox);
-        
         let finalName = cityName;
         let directionPrefix = "";
         
