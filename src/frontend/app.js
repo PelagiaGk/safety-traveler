@@ -241,7 +241,7 @@ async function scanVisibleArea() {
             const formData = new URLSearchParams();
             formData.append("data", query);
 
-            const overpassRes = await fetch(`https://overpass.openstreetmap.fr/api/interpreter`, {
+            const overpassRes = await fetch(`https://overpass-api.de/api/interpreter`, {
                 method: 'POST',
                 body: formData,
                 signal: controller.signal
