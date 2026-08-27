@@ -68,12 +68,13 @@ function getCompassDirection(lat, lon, boundingbox) {
     const latMin = lats[0], latMax = lats[1];
     const lonMin = lons[0], lonMax = lons[1];
 
-    if (latMax - latMin < 0.001 || lonMax - lonMin < 0.001) return "";
+    if (latMax - latMin < 0.005 || lonMax - lonMin < 0.005) return "";
 
-    const latEdge = (latMax - latMin) / 4;
-    const lonEdge = (lonMax - lonMin) / 4;
+    const latEdge = (latMax - latMin) / 3;
+    const lonEdge = (lonMax - lonMin) / 3;
 
     let v = "", h = "";
+    
     if (lat >= latMax - latEdge) v = "North";
     else if (lat <= latMin + latEdge) v = "South";
 
