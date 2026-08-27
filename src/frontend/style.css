@@ -171,6 +171,19 @@ h2 { margin: 0;
     line-height: 1.5; 
 }
 
+.info-card, 
+#info-panel {
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+}
+
+.info-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+}
+
 .custom-cluster-wrap {
     background: transparent !important;
     border: none !important;
@@ -204,7 +217,7 @@ h2 { margin: 0;
 }
 
 .leaflet-container {
-    background-color: #c9e4f4 !important; 
+    background-color: #c5e1eb !important; 
 }
 
 .leaflet-bar {
@@ -237,21 +250,8 @@ h2 { margin: 0;
 }
 
 .leaflet-tile-pane {
-    filter: saturate(0.5) contrast(0.9) brightness(1.05) sepia(0.1);
+    filter: saturate(0.9) contrast(0.95);
     transition: filter 0.3s ease;
-}
-
-.info-card, 
-#info-panel {
-    border-radius: 12px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
-    border: 1px solid rgba(0, 0, 0, 0.05);
-    transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
-}
-
-.info-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
 }
 
 select, 
