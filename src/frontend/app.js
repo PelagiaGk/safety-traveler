@@ -190,11 +190,10 @@ async function scanVisibleArea() {
                 nodeLimit = 15;
             }
 
-            const query = `[out:json][timeout:2];node["place"~"${placeFilter}"](${s},${w},${n},${e});out ${nodeLimit};`;
             const formData = new URLSearchParams();
             formData.append("data", query);
 
-            const overpassRes = await fetch(`https://overpass-api.de/api/interpreter`, {
+            const overpassRes = await fetch(`https://overpass.openstreetmap.fr/api/interpreter`, {
                 method: 'POST',
                 body: formData,
                 signal: controller.signal
