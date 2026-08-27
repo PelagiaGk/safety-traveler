@@ -112,9 +112,13 @@ async function updateSidebarRegion(lat, lon) {
 
     const currentZoom = map.getZoom();
     let nomZoom = 10; 
-    if (currentZoom < 5) nomZoom = 3;      
-    else if (currentZoom < 7) nomZoom = 5; 
-    else if (currentZoom < 9) nomZoom = 8; 
+    if (currentZoom < 5) {
+        baseName = addr.country || "International Space";
+    } else if (currentZoom < 7) {
+        baseName = addr.state || addr.region || addr.province || addr.country || "Regional Sector";
+    } else {
+        baseName = addr.county || addr.district || addr.state_district || addr.municipality || addr.city || addr.state || addr.country || "Local Sector";
+    }            
 
     try {
         const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=${nomZoom}&accept-language=en`);
@@ -301,7 +305,7 @@ async function scanVisibleArea() {
 
             const naturalDisasters = ["Wildfire", "Flood", "Earthquake", "Drought"];
             if (naturalDisasters.includes(pt.threat.disaster_type)) {
-                const offset = (pt.name.length % 5 + 2) * 0.015; 
+                const offset = (pt.name.length % 5 + 2) * 0.003; 
                 const direction = pt.name.length % 4; 
                 
                 if (direction === 0) finalLat += offset;      
