@@ -1,12 +1,12 @@
-body, 
-button, 
-input, 
-select, 
+body,
+button,
+input,
+select,
 textarea,
-.leaflet-container, 
-.leaflet-popup-content, 
+.leaflet-container,
+.leaflet-popup-content,
 .leaflet-tooltip {
-    font-family: 'Bellota Text', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+    font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
 }
 
 * {
@@ -218,6 +218,11 @@ h2 { margin: 0;
 
 .leaflet-container {
     background-color: #c5e1eb !important; 
+}
+
+.leaflet-tile-pane {
+    filter: brightness(0.85) contrast(1.15) saturate(1.4) sepia(0.15);
+    transition: filter 0.3s ease;
 }
 
 .leaflet-bar {
