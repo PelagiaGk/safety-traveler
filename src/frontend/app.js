@@ -1,12 +1,13 @@
 let map;
-let markersClusterGroup; 
+let markersClusterGroup;
 let isMarkerClick = false;
 let overpassCircuitTripped = false;
 let mapIdleTimer;
 let currentRegionName = "Regional View";
+let currentActivePopup = null;
 
 const plottedMarkersCache = [];
-const MIN_DISTANCE_THRESHOLD = 0.25; 
+const MIN_DISTANCE_THRESHOLD = 0.25;
 
 document.addEventListener("DOMContentLoaded", () => {
     if (map !== undefined && map !== null) {
@@ -14,55 +15,94 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const worldBounds = [
-        [-90, -180], 
-        [90, 180]    
+        [-90, -180],
+        [90, 180]
     ];
 
     map = L.map('map', {
         maxBounds: worldBounds,
         maxBoundsViscosity: 1.0,
-        minZoom: 3 
-    }).setView([38.0, 24.0], 6); 
-    
+        minZoom: 3
+    }).setView([38.0, 24.0], 6);
+
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
         attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ, TomTom, Intermap, iPC, USGS, FAO, NPS, NRCAN, GeoBase, Kadaster NL, Ordnance Survey, Esri Japan, METI, Esri China (Hong Kong), and the GIS User Community',
         maxZoom: 19,
-        minZoom: 3,       
+        minZoom: 3,
         noWrap: true,
-        bounds: worldBounds 
+        bounds: worldBounds
     }).addTo(map);
 
-    markersClusterGroup = L.featureGroup().addTo(map); 
+    markersClusterGroup = L.featureGroup().addTo(map);
 
-    map.on('dragstart', resetSidebar);
-    map.on('zoomstart', resetSidebar);
+    map.on('click', (e) => {
+        if (isMarkerClick) {
+            isMarkerClick = false;
+            return;
+        }
+
+        const emptyHtml = `
+            <div class="glass-popup empty-state">
+                <h3>Data says nothing to worry about! 🌿</h3>
+            </div>
+        `;
+
+        currentActivePopup = L.popup({
+            offset: [0, -5],
+            className: 'custom-glass-wrapper'
+        })
+            .setLatLng(e.latlng)
+            .setContent(emptyHtml)
+            .openOn(map);
+    });
 
     map.on('moveend', () => {
-        isMarkerClick = false; 
+        isMarkerClick = false;
         clearTimeout(mapIdleTimer);
-        
+
         mapIdleTimer = setTimeout(() => {
             const center = map.getBounds().getCenter();
-            updateSidebarRegion(center.lat, center.lng);
+            updateRegionMeta(center.lat, center.lng);
             scanVisibleArea();
-        }, 1500); 
+        }, 1500);
     });
+
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.addEventListener('keypress', async (e) => {
+            if (e.key === 'Enter') {
+                const query = searchInput.value.trim();
+                if (!query) return;
+
+                try {
+                    const params = new URLSearchParams({
+                        q: query,
+                        format: 'json',
+                        limit: 1
+                    });
+                    const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`);
+                    const data = await response.json();
+
+                    if (data && data.length > 0) {
+                        const lat = parseFloat(data[0].lat);
+                        const lon = parseFloat(data[0].lon);
+                        map.flyTo([lat, lon], 8, { animate: true, duration: 1.5 });
+                        searchInput.value = '';
+                        searchInput.blur();
+                    }
+                } catch (err) {
+                    console.warn("Search geocode failed:", err);
+                }
+            }
+        });
+    }
 
     setTimeout(() => {
         const center = map.getBounds().getCenter();
-        updateSidebarRegion(center.lat, center.lng);
+        updateRegionMeta(center.lat, center.lng);
         scanVisibleArea();
     }, 500);
 });
-
-function resetSidebar() {
-    if (!isMarkerClick) { 
-        const panel = document.getElementById('info-panel');
-        if (panel.innerHTML.includes("Season:")) { 
-             panel.innerHTML = '<div class="info-card low"><p style="color: #64748b;">📡 Scanning new area...</p></div>';
-        }
-    }
-}
 
 function getCurrentSeason() {
     const month = new Date().getMonth();
@@ -80,8 +120,8 @@ function getCompassDirection(lat, lon, geoData) {
 
     const southLat = parseFloat(geoData.boundingbox[0]);
     const northLat = parseFloat(geoData.boundingbox[1]);
-    const westLon  = parseFloat(geoData.boundingbox[2]);
-    const eastLon  = parseFloat(geoData.boundingbox[3]);
+    const westLon = parseFloat(geoData.boundingbox[2]);
+    const eastLon = parseFloat(geoData.boundingbox[3]);
 
     const latSpan = northLat - southLat;
     const lonSpan = eastLon - westLon;
@@ -91,11 +131,11 @@ function getCompassDirection(lat, lon, geoData) {
     const boxCenterLat = southLat + (latSpan / 2);
     const boxCenterLon = westLon + (lonSpan / 2);
 
-    const latDeadzone = latSpan / 5; 
+    const latDeadzone = latSpan / 5;
     const lonDeadzone = lonSpan / 5;
 
     let v = "", h = "";
-    
+
     if (targetLat > boxCenterLat + latDeadzone) v = "North";
     else if (targetLat < boxCenterLat - latDeadzone) v = "South";
 
@@ -107,43 +147,41 @@ function getCompassDirection(lat, lon, geoData) {
     return "Central ";
 }
 
-function displayDetails(data) {
-    const panel = document.getElementById('info-panel');
+function buildPopupCard(data, lat, lon) {
     const season = document.getElementById('season-filter')?.value || getCurrentSeason();
-    
-    panel.innerHTML = `
-        <div class="info-card ${data.risk_level}">
-            <h3>📍 ${data.locality}</h3>
-            <p><strong>Season:</strong> ${season}</p>
-            <hr>
-            <p><strong>${data.emoji} Seasonal Advisory: ${data.risk_level.charAt(0).toUpperCase() + data.risk_level.slice(1)} probability of ${data.disaster_type}.</strong></p>
-            <div class="reason-box">
+    const precautionsList = data.dynamic_precautions && data.dynamic_precautions.length > 0 
+        ? data.dynamic_precautions.map(p => `<li>${p}</li>`).join('')
+        : `<li>Monitor local meteorological bulletins and regional safety warnings.</li>`;
+
+    return `
+        <div class="glass-popup">
+            <h2>${data.locality}</h2>
+            <p class="season-tag">Season: <strong>${season}</strong></p>
+            <div class="advisory-section">
+                <p><strong>Seasonal Advisory:</strong> ${data.risk_level.charAt(0).toUpperCase() + data.risk_level.slice(1)} probability of ${data.disaster_type}.</p>
                 <p><strong>Reason:</strong> ${data.primary_reason}</p>
-                <p><strong>PRECAUTIONS:</strong></p>
-                <ul>
-                    ${data.dynamic_precautions.map(p => `<li>${p}</li>`).join('')}
-                </ul>
+            </div>
+            <div class="precautions-section">
+                <h3>PRECAUTIONS:</h3>
+                <ul>${precautionsList}</ul>
             </div>
         </div>
     `;
 }
 
-async function updateSidebarRegion(lat, lon) {
-    const panel = document.getElementById('info-panel');
-    if (panel.innerHTML.includes("Season:")) return; 
-
+async function updateRegionMeta(lat, lon) {
     const currentZoom = map.getZoom();
-    let nomZoom = 10; 
-    if (currentZoom < 5) nomZoom = 3;      
-    else if (currentZoom < 7) nomZoom = 5; 
-    else if (currentZoom < 9) nomZoom = 8; 
+    let nomZoom = 10;
+    if (currentZoom < 5) nomZoom = 3;
+    else if (currentZoom < 7) nomZoom = 5;
+    else if (currentZoom < 9) nomZoom = 8;
 
     try {
         const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=${nomZoom}&accept-language=en`);
         if (res.ok) {
             const data = await res.json();
             if (data.address) {
-                const addr = data.address; 
+                const addr = data.address;
                 let baseName = "Uncharted Sector";
 
                 if (currentZoom < 5) {
@@ -157,34 +195,21 @@ async function updateSidebarRegion(lat, lon) {
                 if (addr.ocean || addr.sea || addr.water) {
                     baseName = addr.ocean || addr.sea || addr.water;
                 }
-                
-                let prefix = getCompassDirection(lat, lon, data);
+
+                const prefix = getCompassDirection(lat, lon, data);
                 currentRegionName = prefix + baseName;
             } else {
                 currentRegionName = "Marine Sector";
             }
         }
     } catch (err) {
-        currentRegionName = "Regional View"; 
-    }
-
-    if (!panel.innerHTML.includes("Season:")) {
-        panel.innerHTML = `
-            <div class="info-card low">
-                <h3>🌍 ${currentRegionName}</h3>
-                <p>Select a marker in this area to view detailed local forecasts.</p>
-            </div>`;
+        currentRegionName = "Regional View";
     }
 }
 
 async function scanVisibleArea() {
     const bounds = map.getBounds();
     const season = document.getElementById('season-filter')?.value || getCurrentSeason();
-    const panel = document.getElementById('info-panel');
-    
-    if (!panel.innerHTML.includes("📍") && !panel.innerHTML.includes("Season:")) {
-        panel.innerHTML = '<div class="info-card low"><p style="color: #64748b;">📡 Scanning live ML forecasts...</p></div>';
-    }
 
     const s = bounds.getSouth().toFixed(4);
     const w = bounds.getWest().toFixed(4);
@@ -198,20 +223,21 @@ async function scanVisibleArea() {
     if (!overpassCircuitTripped) {
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 2000); 
+            const timeoutId = setTimeout(() => controller.abort(), 2000);
 
             const currentZoom = map.getZoom();
             let placeFilter = "city|town";
             let nodeLimit = 25;
 
             if (currentZoom < 7) {
-                placeFilter = "city"; 
-                nodeLimit = 35;       
+                placeFilter = "city";
+                nodeLimit = 35;
             } else if (currentZoom >= 10) {
-                placeFilter = "city|town|village"; 
+                placeFilter = "city|town|village";
                 nodeLimit = 15;
             }
 
+            const query = `[out:json][timeout:2];node["place"~"${placeFilter}"](${s},${w},${n},${e});out ${nodeLimit};`;
             const formData = new URLSearchParams();
             formData.append("data", query);
 
@@ -220,7 +246,7 @@ async function scanVisibleArea() {
                 body: formData,
                 signal: controller.signal
             });
-            
+
             clearTimeout(timeoutId);
 
             if (overpassRes.ok) {
@@ -240,7 +266,7 @@ async function scanVisibleArea() {
         } catch (err) {
             overpassCircuitTripped = true;
             apiOffline = true;
-            setTimeout(() => { overpassCircuitTripped = false; }, 60000); 
+            setTimeout(() => { overpassCircuitTripped = false; }, 60000);
         }
     } else {
         apiOffline = true;
@@ -253,15 +279,14 @@ async function scanVisibleArea() {
             if (geoCheck.ok) {
                 apiOffline = false;
                 const geoData = await geoCheck.json();
-                
+
                 if (geoData.address && (geoData.address.county || geoData.address.municipality || geoData.address.city || geoData.address.state_district)) {
-                    rawPoints.push({ 
-                        lat: parseFloat(center.lat), 
-                        lon: parseFloat(center.lng), 
-                        name: geoData.address.county || geoData.address.municipality || "Regional Sector" 
+                    rawPoints.push({
+                        lat: parseFloat(center.lat),
+                        lon: parseFloat(center.lng),
+                        name: geoData.address.county || geoData.address.municipality || "Regional Sector"
                     });
-                } 
-                else if (geoData.address && (geoData.address.sea || geoData.address.ocean || geoData.address.water)) {
+                } else if (geoData.address && (geoData.address.sea || geoData.address.ocean || geoData.address.water)) {
                     isOcean = true;
                 }
             } else {
@@ -274,14 +299,12 @@ async function scanVisibleArea() {
 
     if (rawPoints.length === 0 && apiOffline && !isOcean) {
         const center = bounds.getCenter();
-        console.warn("All external APIs failed. Forcing scan.");
         rawPoints.push({
             lat: parseFloat(center.lat),
             lon: parseFloat(center.lng),
             name: "Unresolved Region (API Offline)"
         });
     }
-
 
     let predictionsList = [];
     for (const pt of rawPoints) {
@@ -306,7 +329,7 @@ async function scanVisibleArea() {
 
     for (const pt of predictionsList) {
         let isTooClose = false;
-        
+
         for (const cachedPt of plottedMarkersCache) {
             if (cachedPt.type === pt.threat.disaster_type) {
                 const distance = Math.sqrt(Math.pow(pt.lat - cachedPt.lat, 2) + Math.pow(pt.lon - cachedPt.lon, 2));
@@ -323,24 +346,24 @@ async function scanVisibleArea() {
 
             const naturalDisasters = ["Wildfire", "Flood", "Earthquake", "Drought"];
             if (naturalDisasters.includes(pt.threat.disaster_type)) {
-                const offset = (pt.name.length % 5 + 2) * 0.003; 
-                const direction = pt.name.length % 4; 
-                
-                if (direction === 0) finalLat += offset;      
-                else if (direction === 1) finalLon += offset; 
-                else if (direction === 2) finalLat -= offset; 
-                else finalLon -= offset;                      
+                const offset = (pt.name.length % 5 + 2) * 0.003;
+                const direction = pt.name.length % 4;
+
+                if (direction === 0) finalLat += offset;
+                else if (direction === 1) finalLon += offset;
+                else if (direction === 2) finalLat -= offset;
+                else finalLon -= offset;
             }
 
             for (const cachedPt of plottedMarkersCache) {
-                 if (Math.abs(finalLat - cachedPt.lat) < 0.02 && Math.abs(finalLon - cachedPt.lon) < 0.02) {
-                     finalLat += 0.025; 
-                     finalLon += 0.025; 
-                     break;
-                 }
+                if (Math.abs(finalLat - cachedPt.lat) < 0.02 && Math.abs(finalLon - cachedPt.lon) < 0.02) {
+                    finalLat += 0.025;
+                    finalLon += 0.025;
+                    break;
+                }
             }
-            
-            plottedMarkersCache.push({ lat: finalLat, lon: finalLon, type: pt.threat.disaster_type }); 
+
+            plottedMarkersCache.push({ lat: finalLat, lon: finalLon, type: pt.threat.disaster_type });
             plotDynamicMarker(finalLat, finalLon, pt.threat, pt.name);
         }
     }
@@ -348,7 +371,7 @@ async function scanVisibleArea() {
 
 function plotDynamicMarker(lat, lon, topThreat, cityName) {
     const probability = parseInt(topThreat.probability_percentage);
-    if (probability < 30) return; 
+    if (probability < 30) return;
 
     let risk = probability >= 65 ? 'high' : (probability >= 40 ? 'medium' : 'low');
     const emojis = { "Wildfire": "🔥", "Flood": "🌊", "Storm": "🌪️", "Heatwave": "☀️", "Earthquake": "🌋", "Drought": "🏜️" };
@@ -356,50 +379,51 @@ function plotDynamicMarker(lat, lon, topThreat, cityName) {
     const borderColor = risk === 'high' ? '#ef4444' : risk === 'medium' ? '#f59e0b' : '#10b981';
 
     const icon = L.divIcon({
-        html: `<div style="background: white;
-        border-radius: 50%;
-        width: 28px;
-        height: 28px; 
-        display: flex; 
-        align-items: center; 
-        justify-content: center; 
-        font-size: 16px; 
-        border: 3px solid ${borderColor}; 
-        box-shadow: 0 2px 5px rgba(0,0,0,0.15); 
-        cursor: pointer;" 
-        title="Regional Alert: ${probability}% ${topThreat.disaster_type}">${emoji}</div>`,
-        className: '', iconSize: [28, 28], iconAnchor: [14, 14]
+        html: `<div class="marker-bubble" style="border-color: ${borderColor};">${emoji}</div>`,
+        className: 'custom-emoji-icon-container',
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
     });
 
     const marker = L.marker([lat, lon], { icon: icon, customRisk: risk, customEmoji: emoji });
-    
-    marker.on('click', async () => {
+
+    marker.on('click', async (e) => {
         isMarkerClick = true;
-        map.flyTo([lat, lon], 11, { duration: 1.2 }); 
-        
-        displayDetails({
-            locality: "⏳ Resolving Region...", 
+        L.DomEvent.stopPropagation(e);
+
+        map.flyTo([lat, lon], 10, { duration: 1.2 });
+
+        const initialDetails = {
+            locality: "⏳ Resolving Region...",
             disaster_type: topThreat.disaster_type,
             risk_level: risk,
             emoji: emoji,
             primary_reason: `Live ML forecast indicates a ${probability}% probability for ${topThreat.disaster_type} in the surrounding area.`,
             dynamic_precautions: ["Monitor local meteorological bulletins and regional safety warnings."]
-        });
+        };
+
+        const popup = L.popup({
+            offset: [0, -10],
+            className: 'custom-glass-wrapper'
+        })
+            .setLatLng([lat, lon])
+            .setContent(buildPopupCard(initialDetails, lat, lon))
+            .openOn(map);
 
         let finalName = cityName;
         let directionPrefix = "";
-        
+
         try {
-            await new Promise(resolve => setTimeout(resolve, 1300));
+            await new Promise(resolve => setTimeout(resolve, 800));
 
             const currentZoom = map.getZoom();
             let nomZoom = 10;
-            if (currentZoom < 5) nomZoom = 3;      
-            else if (currentZoom < 7) nomZoom = 5; 
+            if (currentZoom < 5) nomZoom = 3;
+            else if (currentZoom < 7) nomZoom = 5;
             else if (currentZoom < 9) nomZoom = 8;
 
             const geo = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=${nomZoom}&accept-language=en`);
-            
+
             if (geo.ok) {
                 const geoData = await geo.json();
                 if (geoData.address) {
@@ -412,7 +436,7 @@ function plotDynamicMarker(lat, lon, topThreat, cityName) {
                     } else {
                         finalName = addr.county || addr.district || addr.state_district || addr.municipality || addr.city || addr.state || addr.country || finalName;
                     }
-                    
+
                     directionPrefix = getCompassDirection(lat, lon, geoData);
                 }
             }
@@ -420,14 +444,16 @@ function plotDynamicMarker(lat, lon, topThreat, cityName) {
             console.warn("Failed to resolve regional name on click.");
         }
 
-        displayDetails({
-            locality: `${directionPrefix}${finalName} (Radius)`, 
+        const resolvedDetails = {
+            locality: `${directionPrefix}${finalName}`,
             disaster_type: topThreat.disaster_type,
             risk_level: risk,
             emoji: emoji,
             primary_reason: `Live ML forecast indicates a ${probability}% probability for ${topThreat.disaster_type} in the surrounding area.`,
             dynamic_precautions: ["Monitor local meteorological bulletins and regional safety warnings."]
-        });
+        };
+
+        popup.setContent(buildPopupCard(resolvedDetails, lat, lon));
     });
 
     markersClusterGroup.addLayer(marker);
