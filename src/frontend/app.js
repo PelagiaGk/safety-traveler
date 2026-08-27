@@ -59,27 +59,33 @@ function getCurrentSeason() {
     return "Winter";
 }
 
-function getCompassDirection(lat, lon, boundingbox) {
-    if (!boundingbox || boundingbox.length < 4) return "";
+function getCompassDirection(lat, lon, geoData) {
+    if (!geoData || !geoData.boundingbox || !geoData.lat || !geoData.lon) return "";
 
-    const lats = [parseFloat(boundingbox[0]), parseFloat(boundingbox[1])].sort((a,b) => a - b);
-    const lons = [parseFloat(boundingbox[2]), parseFloat(boundingbox[3])].sort((a,b) => a - b);
+    const targetLat = parseFloat(lat);
+    const targetLon = parseFloat(lon);
+    
+    const centerLat = parseFloat(geoData.lat);
+    const centerLon = parseFloat(geoData.lon);
 
-    const latMin = lats[0], latMax = lats[1];
-    const lonMin = lons[0], lonMax = lons[1];
+    const lats = [parseFloat(geoData.boundingbox[0]), parseFloat(geoData.boundingbox[1])].sort((a,b) => a - b);
+    const lons = [parseFloat(geoData.boundingbox[2]), parseFloat(geoData.boundingbox[3])].sort((a,b) => a - b);
 
-    if (latMax - latMin < 0.005 || lonMax - lonMin < 0.005) return "";
+    const latSpan = lats[1] - lats[0];
+    const lonSpan = lons[1] - lons[0];
 
-    const latEdge = (latMax - latMin) / 3;
-    const lonEdge = (lonMax - lonMin) / 3;
+    if (latSpan < 0.005 || lonSpan < 0.005) return "";
+
+    const latDeadzone = latSpan / 6; 
+    const lonDeadzone = lonSpan / 6;
 
     let v = "", h = "";
     
-    if (lat >= latMax - latEdge) v = "North";
-    else if (lat <= latMin + latEdge) v = "South";
+    if (targetLat > centerLat + latDeadzone) v = "North";
+    else if (targetLat < centerLat - latDeadzone) v = "South";
 
-    if (lon >= lonMax - lonEdge) h = "East";
-    else if (lon <= lonMin + lonEdge) h = "West";
+    if (targetLon > centerLon + lonDeadzone) h = "East";
+    else if (targetLon < centerLon - lonDeadzone) h = "West";
 
     if (v && h) return `${v}${h.toLowerCase()} `;
     if (v || h) return `${v || h} `;
