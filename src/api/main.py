@@ -7,7 +7,6 @@ from typing import Optional, List, Dict, Any
 
 from fastapi import FastAPI, Query, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -93,7 +92,10 @@ def predict_risk(
 ):
     active_season = season if season else get_current_season()
     target_region = region if region else "Unknown"
-    
+
+    if target_region and any(term in target_region for term in ["Sea", "Ocean", "Marine", "Gulf"]):
+        return {"predictions": []}
+
     return predictor.predict(
         region=target_region,
         season=active_season,
@@ -138,8 +140,6 @@ def get_default_view(
     }
 
 FRONTEND_DIR = BASE_DIR / "src" / "frontend"
-
-app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
 @app.get("/")
 def serve_frontend():
