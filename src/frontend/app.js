@@ -288,12 +288,12 @@ async function scanVisibleArea() {
 
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000); 
+        const timeoutId = setTimeout(() => controller.abort(), 12000); 
 
         let nodeLimit = currentZoom < 6 ? 15 : (currentZoom >= 10 ? 25 : 20);
         let placeFilter = currentZoom < 6 ? "country|state|city" : "city|town|village|municipality";
 
-        const query = `[out:json][timeout:12];node["place"~"${placeFilter}"](${s},${w},${n},${e});out ${nodeLimit};`;
+        const query = `[out:json][timeout:8];node["place"~"${placeFilter}"](${s},${w},${n},${e});out ${nodeLimit};`;
         const overpassRes = await fetch(`/api/v1/overpass-proxy?data=${encodeURIComponent(query)}`, {
             signal: controller.signal
         });
@@ -316,17 +316,20 @@ async function scanVisibleArea() {
             }
         }
     } catch (err) {
-        console.warn("Overpass API timeout. Falling back to guarded center scan.");
+        console.warn("Overpass API unavailable. Falling back to 5-point guarded grid scan.");
     }
 
     if (rawPoints.length === 0) {
         const center = bounds.getCenter();
-        const lonOffset = (bounds.getEast() - bounds.getWest()) * 0.25; 
+        const latOff = (bounds.getNorth() - bounds.getSouth()) * 0.25;
+        const lonOff = (bounds.getEast() - bounds.getWest()) * 0.25; 
         
         const fallbackPoints = [
-            { lat: center.lat, lon: center.lng }, 
-            { lat: center.lat, lon: center.lng - lonOffset }, 
-            { lat: center.lat, lon: center.lng + lonOffset }  
+            { lat: center.lat, lon: center.lng }, // Center
+            { lat: center.lat + latOff, lon: center.lng }, // North
+            { lat: center.lat - latOff, lon: center.lng }, // South
+            { lat: center.lat, lon: center.lng - lonOff }, // West
+            { lat: center.lat, lon: center.lng + lonOff }  // East
         ];
 
         for (const pt of fallbackPoints) {

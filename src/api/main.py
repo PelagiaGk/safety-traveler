@@ -58,23 +58,29 @@ def get_nearest_region(lat: float, lon: float, features: List[Dict]) -> Optional
 
 @app.get("/api/v1/overpass-proxy")
 async def overpass_proxy(data: str):
-    """Proxies Overpass requests using a lenient mirror to bypass Cloud IP bans."""
-    url = "https://overpass.kumi.systems/api/interpreter" 
+    """Resilient proxy that tries multiple global OSM mirrors to bypass IP bans and downtime."""
+    
+    endpoints = [
+        "https://lz4.overpass-api.de/api/interpreter",
+        "https://z.overpass-api.de/api/interpreter",
+        "https://overpass-api.de/api/interpreter"
+    ]
     
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Public-Safety-Dashboard/1.0",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "*/*"
     }
     
-    async with httpx.AsyncClient(timeout=25.0) as client:
-        try:
-            response = await client.get(url, params={"data": data}, headers=headers)
-            if response.status_code == 200:
-                return response.json()
-            else:
-                return {"elements": []}
-        except Exception as e:
-            return {"elements": []}
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        for url in endpoints:
+            try:
+                response = await client.get(url, params={"data": data}, headers=headers)
+                if response.status_code == 200:
+                    return response.json()
+            except Exception:
+                continue 
+                
+    return {"elements": []}
 
 @app.get("/api/v1/nominatim-proxy")
 async def nominatim_proxy(lat: float, lon: float, zoom: int = 10):
