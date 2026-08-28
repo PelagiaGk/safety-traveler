@@ -58,8 +58,8 @@ def get_nearest_region(lat: float, lon: float, features: List[Dict]) -> Optional
 
 @app.get("/api/v1/overpass-proxy")
 async def overpass_proxy(data: str):
-    """Proxies Overpass requests with strict headers to bypass Cloud/Codespace blocks."""
-    url = "https://overpass-api.de/api/interpreter"
+    """Proxies Overpass requests using a lenient mirror to bypass Cloud IP bans."""
+    url = "https://overpass.kumi.systems/api/interpreter" 
     
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Public-Safety-Dashboard/1.0",

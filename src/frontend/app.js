@@ -288,9 +288,9 @@ async function scanVisibleArea() {
 
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000); 
+        const timeoutId = setTimeout(() => controller.abort(), 4000); 
 
-        let nodeLimit = currentZoom < 6 ? 8 : (currentZoom >= 10 ? 15 : 12);
+        let nodeLimit = currentZoom < 6 ? 15 : (currentZoom >= 10 ? 25 : 20);
         let placeFilter = currentZoom < 6 ? "country|state|city" : "city|town|village|municipality";
 
         const query = `[out:json][timeout:12];node["place"~"${placeFilter}"](${s},${w},${n},${e});out ${nodeLimit};`;
