@@ -55,7 +55,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     let nomZoom = 10;
                     if (currentZoom < 5) nomZoom = 3; else if (currentZoom < 7) nomZoom = 5; else if (currentZoom < 9) nomZoom = 8;
                     
-                    const geoRes = await fetch(`/api/v1/nominatim-proxy?lat=${lat}&lon=${lon}&zoom=${nomZoom}`);
+                    const geoRes = await fetch(`/api/v1/nominatim-proxy?lat=${e.latlng.lat}&lon=${e.latlng.lng}&zoom=${nomZoom}`);
                      
                     if (geoRes.ok) {
                         const geoData = await geoRes.json();
@@ -87,16 +87,29 @@ document.addEventListener("DOMContentLoaded", () => {
                     console.warn("Click geocode failed.");
                 }
 
-                popup.close();
-                
-                plottedMarkersCache.push({ 
-                    lat: e.latlng.lat, 
-                    lon: e.latlng.lng, 
-                    type: data.predictions[0].disaster_type, 
-                    name: clickRegionName 
-                });
-                
-                plotDynamicMarker(e.latlng.lat, e.latlng.lng, data.predictions[0], clickRegionName);
+                let isDuplicate = false;
+                for (const cachedPt of plottedMarkersCache) {
+                    const distance = Math.hypot(e.latlng.lat - cachedPt.lat, e.latlng.lng - cachedPt.lon);
+                    if (distance < 0.6 || cachedPt.name === clickRegionName) {
+                        isDuplicate = true;
+                        break;
+                    }
+                }
+
+                if (isDuplicate) {
+                    data.predictions[0].locality = clickRegionName;
+                    popup.setContent(buildPopupCard(data.predictions[0], e.latlng.lat, e.latlng.lng));
+                } else {
+                    // Safe to plot!
+                    popup.close();
+                    plottedMarkersCache.push({ 
+                        lat: e.latlng.lat, 
+                        lon: e.latlng.lng, 
+                        type: data.predictions[0].disaster_type, 
+                        name: clickRegionName 
+                    });
+                    plotDynamicMarker(e.latlng.lat, e.latlng.lng, data.predictions[0], clickRegionName);
+                }
                 
             } else {
                 popup.setContent('<div class="glass-popup empty-state"><h3>Data says nothing to worry about! 🌿</h3></div>');
@@ -104,17 +117,6 @@ document.addEventListener("DOMContentLoaded", () => {
         } catch (err) {
             popup.setContent('<div class="glass-popup empty-state"><h3>Data says nothing to worry about! 🌿</h3></div>');
         }
-    });
-
-    map.on('moveend', () => {
-        isMarkerClick = false;
-        clearTimeout(mapIdleTimer);
-
-        mapIdleTimer = setTimeout(() => {
-            const center = map.getBounds().getCenter();
-            updateRegionMeta(center.lat, center.lng);
-            scanVisibleArea();
-        }, 1500);
     });
 
     const searchInput = document.getElementById('searchInput');
@@ -147,17 +149,18 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    setTimeout(() => {
-        const center = map.getBounds().getCenter();
-        updateRegionMeta(center.lat, center.lng);
-        scanVisibleArea();
-    }, 500);
-
     let scanTimeout;
     
     map.on('moveend', () => {
+        isMarkerClick = false;
         clearTimeout(scanTimeout);
-        scanTimeout = setTimeout(scanVisibleArea, 600); 
+        scanTimeout = setTimeout(() => {
+            const center = map.getBounds().getCenter();
+            if (typeof updateRegionMeta === 'function') {
+                updateRegionMeta(center.lat, center.lng);
+            }
+            scanVisibleArea();
+        }, 600); 
     });
     
     map.on('zoomend', () => {
@@ -165,7 +168,13 @@ document.addEventListener("DOMContentLoaded", () => {
         scanTimeout = setTimeout(scanVisibleArea, 600);
     });
 
-    scanVisibleArea();
+    setTimeout(() => {
+        const center = map.getBounds().getCenter();
+        if (typeof updateRegionMeta === 'function') {
+            updateRegionMeta(center.lat, center.lng);
+        }
+        scanVisibleArea();
+    }, 500);
 });
 
 function getCurrentSeason() {
@@ -306,55 +315,49 @@ async function scanVisibleArea() {
     
     const waterTerms = ["sea", "ocean", "gulf", "marine", "bay", "sound", "st. lawrence", "strait", "channel"];
 
-    if (!overpassCircuitTripped) {
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 2000);
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); 
 
-            const currentZoom = map.getZoom();
-            let placeFilter = "city|town|country|state"; 
-            let nodeLimit = 40;
+        const currentZoom = map.getZoom();
+        let placeFilter = "city|town|country|state"; 
+        let nodeLimit = 40;
 
-            if (currentZoom < 6) {
-                placeFilter = "country|state";
-                nodeLimit = 15;
-            } else if (currentZoom >= 10) {
-                placeFilter = "city|town|village";
-                nodeLimit = 20;
-            }
-
-            const query = `[out:json][timeout:5];node["place"~"${placeFilter}"](${s},${w},${n},${e});out ${nodeLimit};`;
-            const overpassRes = await fetch(`/api/v1/overpass-proxy?data=${encodeURIComponent(query)}`, {
-                signal: controller.signal
-            });
-
-            clearTimeout(timeoutId);
-
-            if (overpassRes.ok) {
-                const cityData = await overpassRes.json();
-                if (cityData.elements && cityData.elements.length > 0) {
-                    cityData.elements.forEach(city => {
-                        const placeName = city.tags['name:en'] || city.tags.name || "Regional Sector";
-                        
-                        if (!waterTerms.some(term => placeName.toLowerCase().includes(term))) {
-                            rawPoints.push({
-                                lat: parseFloat(city.lat),
-                                lon: parseFloat(city.lon),
-                                name: placeName
-                            });
-                        }
-                    });
-                }
-            } else {
-                apiOffline = true;
-            }
-        } catch (err) {
-            overpassCircuitTripped = true;
-            apiOffline = true;
-            setTimeout(() => { overpassCircuitTripped = false; }, 60000);
+        if (currentZoom < 6) {
+            placeFilter = "country|state";
+            nodeLimit = 15;
+        } else if (currentZoom >= 10) {
+            placeFilter = "city|town|village";
+            nodeLimit = 20;
         }
-    } else {
-        apiOffline = true;
+
+        const query = `[out:json][timeout:5];node["place"~"${placeFilter}"](${s},${w},${n},${e});out ${nodeLimit};`;
+        const overpassRes = await fetch(`/api/v1/overpass-proxy?data=${encodeURIComponent(query)}`, {
+            signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (overpassRes.ok) {
+            const cityData = await overpassRes.json();
+            if (cityData.elements && cityData.elements.length > 0) {
+                cityData.elements.forEach(city => {
+                    const placeName = city.tags['name:en'] || city.tags.name || "Regional Sector";
+                    
+                    if (!waterTerms.some(term => placeName.toLowerCase().includes(term))) {
+                        rawPoints.push({
+                            lat: parseFloat(city.lat),
+                            lon: parseFloat(city.lon),
+                            name: placeName
+                        });
+                    }
+                });
+            }
+        } else {
+            apiOffline = true;
+        }
+    } catch (err) {
+        apiOffline = true; 
     }
 
     if (rawPoints.length === 0) {
