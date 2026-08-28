@@ -63,7 +63,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         if (geoData.lat && geoData.lon) {
                             const snapDist = Math.hypot(e.latlng.lat - parseFloat(geoData.lat), e.latlng.lng - parseFloat(geoData.lon));
                             
-                            if (snapDist > 0.08) {
+                            if (snapDist > 0.02) {
                                 popup.setContent('<div class="glass-popup empty-state"><h3>Data says nothing to worry about! 🌿</h3></div>');
                                 return;
                             }
@@ -90,7 +90,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 let isDuplicate = false;
                 for (const cachedPt of plottedMarkersCache) {
                     const distance = Math.hypot(e.latlng.lat - cachedPt.lat, e.latlng.lng - cachedPt.lon);
-                    if (distance < 0.6 || cachedPt.name === clickRegionName) {
+                    if (distance < 0.03) {
                         isDuplicate = true;
                         break;
                     }
@@ -100,7 +100,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     data.predictions[0].locality = clickRegionName;
                     popup.setContent(buildPopupCard(data.predictions[0], e.latlng.lat, e.latlng.lng));
                 } else {
-                    // Safe to plot!
                     popup.close();
                     plottedMarkersCache.push({ 
                         lat: e.latlng.lat, 
@@ -432,7 +431,7 @@ async function scanVisibleArea() {
         for (const cachedPt of plottedMarkersCache) {
             const distance = Math.hypot(pt.lat - cachedPt.lat, pt.lon - cachedPt.lon);
             
-            if (distance < 0.6 || cachedPt.name === pt.name) {
+            if (distance < 0.2) {
                 isDuplicate = true;
                 break;
             }
