@@ -304,20 +304,22 @@ async function scanVisibleArea() {
 
         clearTimeout(timeoutId);
 
-        if (overpassRes.ok) {
-            const cityData = await overpassRes.json();
-            if (cityData.elements && cityData.elements.length > 0) {
-                cityData.elements.forEach(city => {
-                    const placeName = city.tags['name:en'] || city.tags.name || "Regional Sector";
-                    if (!waterTerms.some(term => placeName.toLowerCase().includes(term))) {
-                        rawPoints.push({
-                            lat: parseFloat(city.lat),
-                            lon: parseFloat(city.lon),
-                            name: placeName
-                        });
-                    }
-                });
-            }
+        if (!overpassRes.ok) {
+            throw new Error(`Overpass HTTP error: ${overpassRes.status}`);
+        }
+
+        const cityData = await overpassRes.json();
+        if (cityData.elements && cityData.elements.length > 0) {
+            cityData.elements.forEach(city => {
+                const placeName = city.tags['name:en'] || city.tags.name || "Regional Sector";
+                if (!waterTerms.some(term => placeName.toLowerCase().includes(term))) {
+                    rawPoints.push({
+                        lat: parseFloat(city.lat),
+                        lon: parseFloat(city.lon),
+                        name: placeName
+                    });
+                }
+            });
         }
     } catch (err) {
         console.warn("Overpass API unavailable. Falling back to 5-point guarded grid scan.");
@@ -329,11 +331,11 @@ async function scanVisibleArea() {
         const lonOff = (bounds.getEast() - bounds.getWest()) * 0.25; 
         
         const fallbackPoints = [
-            { lat: center.lat, lon: center.lng }, // Center
-            { lat: center.lat + latOff, lon: center.lng }, // North
-            { lat: center.lat - latOff, lon: center.lng }, // South
-            { lat: center.lat, lon: center.lng - lonOff }, // West
-            { lat: center.lat, lon: center.lng + lonOff }  // East
+            { lat: center.lat, lon: center.lng }, 
+            { lat: center.lat + latOff, lon: center.lng }, 
+            { lat: center.lat - latOff, lon: center.lng }, 
+            { lat: center.lat, lon: center.lng - lonOff }, 
+            { lat: center.lat, lon: center.lng + lonOff }  
         ];
 
         for (const pt of fallbackPoints) {
@@ -357,14 +359,16 @@ async function scanVisibleArea() {
                                           (geoData.address && (geoData.address.sea || geoData.address.ocean || geoData.address.water));
                     }
                     
-                    if (!isWaterMetadata && geoData.address) {
-                        const addr = geoData.address;
-                        const regionName = addr.municipality || addr.town || addr.village || addr.county || addr.city || "Regional Sector";
+                    if (!isWaterMetadata) {
+                        let regionName = "Regional Sector";
+                        if (geoData.address) {
+                            regionName = geoData.address.municipality || geoData.address.town || geoData.address.village || geoData.address.county || geoData.address.city || "Regional Sector";
+                        }
                         rawPoints.push({ lat: pt.lat, lon: pt.lon, name: regionName });
                     }
                 }
             } catch (err) {
-                console.warn("Fallback point failed.");
+                console.warn("Fallback point failed.", err);
             }
         }
     }
@@ -400,7 +404,7 @@ async function scanVisibleArea() {
 
         for (const cachedPt of plottedMarkersCache) {
             const distance = Math.hypot(pt.lat - cachedPt.lat, pt.lon - cachedPt.lon);
-            if (distance < dedupeDistance || cachedPt.name === pt.name) {
+            if (distance < dedupeDistance) {
                 isDuplicate = true;
                 break;
             }
