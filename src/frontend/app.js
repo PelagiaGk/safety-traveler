@@ -179,6 +179,12 @@ function getCompassDirection(lat, lon, geoData) {
 
 function buildPopupCard(data, lat, lon) {
     const season = document.getElementById('season-filter')?.value || getCurrentSeason();
+    
+    let reasonText = data.primary_reason || `Live ML forecast indicates a ${data.probability_percentage}% probability for ${data.disaster_type} in the surrounding area.`;
+    if (data.years_of_data) {
+        reasonText += ` (Derived from ${data.years_of_data} years of historical data).`;
+    }
+
     const precautionsList = data.dynamic_precautions && data.dynamic_precautions.length > 0 
         ? data.dynamic_precautions.map(p => `<li>${p}</li>`).join('')
         : `<li>Monitor local meteorological bulletins and regional safety warnings.</li>`;
@@ -189,7 +195,7 @@ function buildPopupCard(data, lat, lon) {
             <p class="season-tag">Season: <strong>${season}</strong></p>
             <div class="advisory-section">
                 <p><strong>Seasonal Advisory:</strong> ${data.risk_level.charAt(0).toUpperCase() + data.risk_level.slice(1)} probability of ${data.disaster_type}.</p>
-                <p><strong>Reason:</strong> ${data.primary_reason}</p>
+                <p><strong>Reason:</strong> ${reasonText}</p>
             </div>
             <div class="precautions-section">
                 <h3>PRECAUTIONS:</h3>
