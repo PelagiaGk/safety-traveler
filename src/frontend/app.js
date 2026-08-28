@@ -47,7 +47,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const res = await fetch(`/api/v1/predict?lat=${e.latlng.lat}&lon=${e.latlng.lng}&region=Local Sector&season=${season}`);
             const data = await res.json();
             
-            if (data.predictions && data.predictions[0] && parseInt(data.predictions[0].probability_percentage) >= 30) {
+            if (data.predictions && data.predictions[0]) {
                 
                 let clickRegionName = "Local Sector";
                 try {
@@ -59,14 +59,12 @@ document.addEventListener("DOMContentLoaded", () => {
                      
                     if (geoRes.ok) {
                         const geoData = await geoRes.json();
-                        
                         const dispName = (geoData.display_name || "").toLowerCase();
                         const waterTerms = ["sea", "ocean", "gulf", "marine", "bay", "sound", "st. lawrence", "strait", "channel", "water"];
                         const isWaterText = waterTerms.some(term => dispName.includes(term));
                         
                         if (geoData.lat && geoData.lon) {
                             const snapDist = Math.hypot(e.latlng.lat - parseFloat(geoData.lat), e.latlng.lng - parseFloat(geoData.lon));
-                            
                             if (snapDist > 0.01 || isWaterText) {
                                 popup.setContent('<div class="glass-popup empty-state"><h3>Data says nothing to worry about! 🌿</h3></div>');
                                 return;
@@ -91,28 +89,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     console.warn("Click geocode failed.");
                 }
 
-                let isDuplicate = false;
-                for (const cachedPt of plottedMarkersCache) {
-                    const distance = Math.hypot(e.latlng.lat - cachedPt.lat, e.latlng.lng - cachedPt.lon);
-                    if (distance < 0.03) {
-                        isDuplicate = true;
-                        break;
-                    }
-                }
-
-                if (isDuplicate) {
-                    data.predictions[0].locality = clickRegionName;
-                    popup.setContent(buildPopupCard(data.predictions[0], e.latlng.lat, e.latlng.lng));
-                } else {
-                    popup.close();
-                    plottedMarkersCache.push({ 
-                        lat: e.latlng.lat, 
-                        lon: e.latlng.lng, 
-                        type: data.predictions[0].disaster_type, 
-                        name: clickRegionName 
-                    });
-                    plotDynamicMarker(e.latlng.lat, e.latlng.lng, data.predictions[0], clickRegionName);
-                }
+                data.predictions[0].locality = clickRegionName;
+                popup.setContent(buildPopupCard(data.predictions[0], e.latlng.lat, e.latlng.lng));
                 
             } else {
                 popup.setContent('<div class="glass-popup empty-state"><h3>Data says nothing to worry about! 🌿</h3></div>');
@@ -306,6 +284,7 @@ async function updateRegionMeta(lat, lon) {
 async function scanVisibleArea() {
     const bounds = map.getBounds();
     const season = document.getElementById('season-filter')?.value || getCurrentSeason();
+    const currentZoom = map.getZoom();
 
     const s = bounds.getSouth().toFixed(4);
     const w = bounds.getWest().toFixed(4);
@@ -313,28 +292,16 @@ async function scanVisibleArea() {
     const e = bounds.getEast().toFixed(4);
 
     let rawPoints = [];
-    let isOcean = false;
-    let apiOffline = false;
-    
     const waterTerms = ["sea", "ocean", "gulf", "marine", "bay", "sound", "st. lawrence", "strait", "channel"];
 
     try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000); 
 
-        const currentZoom = map.getZoom();
-        let placeFilter = "city|town|country|state"; 
-        let nodeLimit = 40;
+        let nodeLimit = currentZoom < 6 ? 15 : (currentZoom >= 10 ? 25 : 20);
+        let placeFilter = currentZoom < 6 ? "country|state|city" : "city|town|village|municipality";
 
-        if (currentZoom < 6) {
-            placeFilter = "country|state";
-            nodeLimit = 15;
-        } else if (currentZoom >= 10) {
-            placeFilter = "city|town|village";
-            nodeLimit = 20;
-        }
-
-        const query = `[out:json][timeout:5];node["place"~"${placeFilter}"](${s},${w},${n},${e});out ${nodeLimit};`;
+        const query = `[out:json][timeout:8];node["place"~"${placeFilter}"](${s},${w},${n},${e});out ${nodeLimit};`;
         const overpassRes = await fetch(`/api/v1/overpass-proxy?data=${encodeURIComponent(query)}`, {
             signal: controller.signal
         });
@@ -346,7 +313,6 @@ async function scanVisibleArea() {
             if (cityData.elements && cityData.elements.length > 0) {
                 cityData.elements.forEach(city => {
                     const placeName = city.tags['name:en'] || city.tags.name || "Regional Sector";
-                    
                     if (!waterTerms.some(term => placeName.toLowerCase().includes(term))) {
                         rawPoints.push({
                             lat: parseFloat(city.lat),
@@ -356,55 +322,23 @@ async function scanVisibleArea() {
                     }
                 });
             }
-        } else {
-            apiOffline = true;
         }
     } catch (err) {
-        apiOffline = true; 
+        console.warn("Overpass API timeout. Falling back to spatial coordinate grid.");
     }
 
     if (rawPoints.length === 0) {
-        const center = bounds.getCenter();
-        try {
-            const geoCheck = await fetch(`/api/v1/nominatim-proxy?lat=${center.lat}&lon=${center.lng}&zoom=10`);
-            
-            if (geoCheck.ok) {
-                apiOffline = false;
-                const geoData = await geoCheck.json();
-                
-                if (geoData.error === "Rate limited") {
-                    apiOffline = true;
-                } else {
-                    let snappedTooFar = false;
-                    if (geoData.lat && geoData.lon) {
-                        const snapDist = Math.hypot(center.lat - parseFloat(geoData.lat), center.lng - parseFloat(geoData.lon));
-                        if (snapDist > 0.1) snappedTooFar = true; 
-                    }
-
-                    const isWater = snappedTooFar || 
-                                    (geoData.class === 'natural' && geoData.type === 'water') || 
-                                    geoData.class === 'waterway' || 
-                                    geoData.type === 'sea' || 
-                                    (geoData.address && (geoData.address.sea || geoData.address.ocean || geoData.address.water));
-
-                    if (isWater) {
-                        isOcean = true;
-                    } else if (geoData.address) {
-                        const addr = geoData.address;
-                        const regionName = addr.municipality || addr.town || addr.village || addr.county || addr.city || addr.state_district || addr.state || "Regional Sector";
-                        
-                        rawPoints.push({
-                            lat: parseFloat(center.lat),
-                            lon: parseFloat(center.lng),
-                            name: regionName
-                        });
-                    }
-                }
-            } else {
-                apiOffline = true;
+        const latStep = (bounds.getNorth() - bounds.getSouth()) / 3;
+        const lonStep = (bounds.getEast() - bounds.getWest()) / 3;
+        
+        for(let i=1; i<=2; i++) {
+            for(let j=1; j<=2; j++) {
+                rawPoints.push({
+                    lat: bounds.getSouth() + (latStep * i),
+                    lon: bounds.getWest() + (lonStep * j),
+                    name: "Scanned Sector" 
+                });
             }
-        } catch (err) {
-            apiOffline = true;
         }
     }
 
@@ -415,7 +349,6 @@ async function scanVisibleArea() {
             const res = await fetch(url);
             if (res.ok) {
                 const data = await res.json();
-                
                 if (data.predictions && data.predictions.length > 0 && parseInt(data.predictions[0].probability_percentage) >= 30) {
                     predictionsList.push({
                         ...pt,
@@ -430,13 +363,17 @@ async function scanVisibleArea() {
 
     predictionsList.sort((a, b) => parseInt(b.threat.probability_percentage) - parseInt(a.threat.probability_percentage));
 
+    let dedupeDistance = 0.2; 
+    if (currentZoom >= 10) dedupeDistance = 0.05;
+    else if (currentZoom >= 8) dedupeDistance = 0.1;
+
     for (const pt of predictionsList) {
         let isDuplicate = false;
 
         for (const cachedPt of plottedMarkersCache) {
             const distance = Math.hypot(pt.lat - cachedPt.lat, pt.lon - cachedPt.lon);
             
-            if (distance < 0.2) {
+            if (distance < dedupeDistance) {
                 isDuplicate = true;
                 break;
             }
