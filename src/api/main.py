@@ -88,14 +88,14 @@ async def overpass_proxy(data: str):
         "Accept": "*/*"
     }
     
-    async with httpx.AsyncClient(timeout=15.0) as client:
+    async with httpx.AsyncClient(timeout=4.0) as client:
         for url in endpoints:
             try:
                 response = await client.get(url, params={"data": data}, headers=headers)
                 if response.status_code == 200:
                     return response.json()
             except Exception:
-                continue 
+                continue
                 
     return {"elements": []}
          

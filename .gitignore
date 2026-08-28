@@ -6,6 +6,8 @@ ENV/
 .venv/
 *.pem
 
+.qodo
+
 data/raw/*
 data/processed/*
 !data/raw/.gitkeep
