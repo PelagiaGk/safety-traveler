@@ -45,7 +45,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         try {
             const season = document.getElementById('season-filter')?.value || getCurrentSeason();
-            let clickRegionName = null;
+            let clickRegionName = "Local Sector";
+            let isConfirmedWater = false;
             
             const currentZoom = map.getZoom();
             let nomZoom = 10;
@@ -56,32 +57,32 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (geoRes.ok) {
                     const geoData = await geoRes.json();
                     
-                    if (!geoData.error && geoData.address) {
+                    if (!geoData.error) {
                         const dispName = (geoData.display_name || "").toLowerCase();
-                        const waterTerms = ["sea", "ocean", "gulf", "marine", "bay", "sound", "strait", "channel", "water"];
-                        const isWaterText = waterTerms.some(term => dispName.includes(term));
+                        const waterTerms = ["sea", "ocean", "gulf", "marine", "bay", "strait"];
                         
-                        const isWaterMetadata = (geoData.class === 'natural' && geoData.type === 'water') || 
-                                                geoData.class === 'waterway' || geoData.type === 'sea' || 
-                                                (geoData.address && (geoData.address.sea || geoData.address.ocean || geoData.address.water));
-                        
-                        let isSnappedFar = false;
-                        if (geoData.lat && geoData.lon) {
-                            const snapDist = Math.hypot(e.latlng.lat - parseFloat(geoData.lat), e.latlng.lng - parseFloat(geoData.lon));
-                            if (snapDist > 0.02) isSnappedFar = true;
+                        if (waterTerms.some(term => dispName.includes(term)) || 
+                           (geoData.class === 'natural' && geoData.type === 'water') || 
+                           (geoData.type === 'sea')) {
+                            isConfirmedWater = true;
                         }
 
-                        if (!isWaterText && !isWaterMetadata && !isSnappedFar) {
+                        if (geoData.lat && geoData.lon) {
+                            const snapDist = Math.hypot(e.latlng.lat - parseFloat(geoData.lat), e.latlng.lng - parseFloat(geoData.lon));
+                            if (snapDist > 0.1) isConfirmedWater = true; 
+                        }
+
+                        if (!isConfirmedWater && geoData.address) {
                             const addr = geoData.address;
-                            clickRegionName = addr.municipality || addr.town || addr.village || addr.county || addr.district || addr.city || addr.state || addr.country || "Local Sector";
+                            clickRegionName = addr.municipality || addr.town || addr.village || addr.county || "Local Sector";
                         }
                     }
                 }
             } catch (err) {
-                console.warn("Click geocode skipped due to rate limit."); 
+                console.warn("Geocode skipped. Proceeding to ML analysis."); 
             }
 
-            if (!clickRegionName) {
+            if (isConfirmedWater) {
                 popup.setContent('<div class="glass-popup empty-state"><h3>Data says nothing to worry about! 🌿</h3></div>');
                 return;
             }
@@ -296,7 +297,7 @@ async function scanVisibleArea() {
     const e = bounds.getEast().toFixed(4);
 
     let rawPoints = [];
-    const waterTerms = ["sea", "ocean", "gulf", "marine", "bay", "sound", "st. lawrence", "strait", "channel"];
+    const waterTerms = ["sea", "ocean", "gulf", "marine", "bay", "strait"];
 
     try {
         const controller = new AbortController();
@@ -341,33 +342,40 @@ async function scanVisibleArea() {
         ];
 
         for (const pt of fallbackPoints) {
+            let isValidLand = true;
+            let regionName = "Regional Sector";
+
             try {
                 const geoRes = await fetch(`/api/v1/nominatim-proxy?lat=${pt.lat}&lon=${pt.lon}&zoom=10`);
                 if (geoRes.ok) {
                     const geoData = await geoRes.json();
-                    if (geoData.error || !geoData.address) continue;
-
-                    const isWater = (geoData.class === 'natural' && geoData.type === 'water') || 
-                                    geoData.class === 'waterway' || geoData.type === 'sea' || 
-                                    geoData.address.sea || geoData.address.ocean || geoData.address.water;
                     
-                    const dispName = (geoData.display_name || "").toLowerCase();
-                    const isWaterText = waterTerms.some(term => dispName.includes(term));
+                    if (!geoData.error) {
+                        const isWater = (geoData.class === 'natural' && geoData.type === 'water') || 
+                                        geoData.class === 'waterway' || geoData.type === 'sea';
+                        
+                        const dispName = (geoData.display_name || "").toLowerCase();
+                        const isWaterText = waterTerms.some(term => dispName.includes(term));
 
-                    let snappedFar = false;
-                    if (geoData.lat && geoData.lon) {
-                        const snapDist = Math.hypot(pt.lat - parseFloat(geoData.lat), pt.lon - parseFloat(geoData.lon));
-                        if (snapDist > 0.06) snappedFar = true; 
-                    }
+                        let snappedFar = false;
+                        if (geoData.lat && geoData.lon) {
+                            const snapDist = Math.hypot(pt.lat - parseFloat(geoData.lat), pt.lon - parseFloat(geoData.lon));
+                            if (snapDist > 0.1) snappedFar = true; 
+                        }
 
-                    if (!isWater && !isWaterText && !snappedFar) {
-                        const regionName = geoData.address.municipality || geoData.address.town || geoData.address.village || geoData.address.county || geoData.address.city || "Regional Sector";
-                        rawPoints.push({ lat: pt.lat, lon: pt.lon, name: regionName });
+                        if (isWater || isWaterText || snappedFar) {
+                            isValidLand = false;
+                        } else if (geoData.address) {
+                            regionName = geoData.address.municipality || geoData.address.town || geoData.address.city || "Regional Sector";
+                        }
                     }
                 }
-                await new Promise(resolve => setTimeout(resolve, 1100)); 
             } catch (err) {
-                console.warn("Fallback point skipped.");
+                console.warn("Fallback point bypassed.");
+            }
+
+            if (isValidLand) {
+                rawPoints.push({ lat: pt.lat, lon: pt.lon, name: regionName });
             }
         }
     }
