@@ -54,8 +54,10 @@ document.addEventListener("DOMContentLoaded", () => {
             .openOn(map);
 
         try {
-            const season = document.getElementById('season-filter')?.value || 'Summer';
-            let validLandName = null;
+            const season = document.getElementById('season-filter')?.value || (typeof getCurrentSeason === 'function' ? getCurrentSeason() : 'Summer');
+            
+            let clickName = "Regional Sector"; 
+            let isProvenWater = false;
             
             const currentZoom = map.getZoom();
             let nomZoom = currentZoom < 5 ? 3 : (currentZoom < 7 ? 5 : 8);
@@ -66,42 +68,34 @@ document.addEventListener("DOMContentLoaded", () => {
                     const geoData = await geoRes.json();
                     
                     if (!geoData.error) {
-                        const dispName = (geoData.display_name || "").toLowerCase();
-                        const waterTerms = ["sea", "ocean", "gulf", "marine", "bay", "strait", "water"];
-                        const isWaterText = waterTerms.some(term => dispName.includes(term));
-                        
                         const isWaterMeta = (geoData.class === 'natural' && geoData.type === 'water') || 
                                             geoData.class === 'waterway' || geoData.type === 'sea' || 
-                                            (geoData.address && (geoData.address.sea || geoData.address.ocean || geoData.address.water));
+                                            (geoData.address && (geoData.address.sea || geoData.address.ocean));
                         
-                        let snappedFar = false;
-                        if (geoData.lat && geoData.lon) {
-                            const snapDist = Math.hypot(e.latlng.lat - parseFloat(geoData.lat), e.latlng.lng - parseFloat(geoData.lon));
-                            if (snapDist > 0.08) snappedFar = true; 
-                        }
-
-                        if (!isWaterText && !isWaterMeta && !snappedFar) {
-                            validLandName = (geoData.address && (geoData.address.municipality || geoData.address.town || geoData.address.village || geoData.address.county || geoData.address.city)) || "Regional Sector";
+                        if (isWaterMeta) {
+                            isProvenWater = true;
+                        } else if (geoData.address) {
+                            clickName = geoData.address.municipality || geoData.address.town || geoData.address.village || geoData.address.county || geoData.address.city || "Regional Sector";
                         }
                     }
                 }
             } catch (err) {
-                console.warn("Geocode strictly failed. Aborting ML analysis.");
+                console.warn("Geocode rate-limited. Proceeding to ML analysis anyway.");
             }
 
-            if (!validLandName) {
+            if (isProvenWater) {
                 popup.setContent('<div class="glass-popup empty-state"><h3>Data says nothing to worry about! 🌿</h3></div>');
                 return;
             }
 
-            const res = await fetch(`/api/v1/predict?lat=${e.latlng.lat}&lon=${e.latlng.lng}&region=${encodeURIComponent(validLandName)}&season=${season}`);
+            const res = await fetch(`/api/v1/predict?lat=${e.latlng.lat}&lon=${e.latlng.lng}&region=${encodeURIComponent(clickName)}&season=${season}`);
             const data = await res.json();
             
             if (data.predictions && data.predictions.length > 0) {
                 let topThreat = data.predictions.find(p => parseInt(p.probability_percentage) >= 30);
                 
                 if (topThreat) {
-                    topThreat.locality = validLandName;
+                    topThreat.locality = clickName;
                     popup.setContent(buildPopupCard(topThreat, e.latlng.lat, e.latlng.lng));
                     return;
                 }
@@ -289,7 +283,7 @@ async function updateRegionMeta(lat, lon) {
 
 async function scanVisibleArea() {
     const bounds = map.getBounds();
-    const season = document.getElementById('season-filter')?.value || 'Summer';
+    const season = document.getElementById('season-filter')?.value || (typeof getCurrentSeason === 'function' ? getCurrentSeason() : 'Summer');
     const currentZoom = map.getZoom();
 
     const s = bounds.getSouth().toFixed(4);
@@ -298,7 +292,6 @@ async function scanVisibleArea() {
     const e = bounds.getEast().toFixed(4);
 
     let rawPoints = [];
-    const waterTerms = ["sea", "ocean", "gulf", "marine", "bay", "strait", "water"];
 
     try {
         const controller = new AbortController();
@@ -317,14 +310,12 @@ async function scanVisibleArea() {
             if (cityData.elements) {
                 cityData.elements.forEach(city => {
                     const placeName = city.tags['name:en'] || city.tags.name || "Regional Sector";
-                    if (!waterTerms.some(term => placeName.toLowerCase().includes(term))) {
-                        rawPoints.push({ lat: parseFloat(city.lat), lon: parseFloat(city.lon), name: placeName });
-                    }
+                    rawPoints.push({ lat: parseFloat(city.lat), lon: parseFloat(city.lon), name: placeName });
                 });
             }
         }
     } catch (err) {
-        console.warn("Overpass API unavailable. Triggering rate-limited fallback.");
+        console.warn("Overpass API unavailable. Triggering fail-open fallback.");
     }
 
     if (rawPoints.length === 0) {
@@ -341,31 +332,33 @@ async function scanVisibleArea() {
         ];
 
         for (const pt of fallbackPoints) {
+            let isProvenWater = false;
+            let regionName = "Regional Sector"; 
+
             try {
                 const geoRes = await fetch(`/api/v1/nominatim-proxy?lat=${pt.lat}&lon=${pt.lon}&zoom=10`);
                 if (geoRes.ok) {
                     const geoData = await geoRes.json();
                     
                     if (!geoData.error) {
-                        const dispName = (geoData.display_name || "").toLowerCase();
-                        const isWaterText = waterTerms.some(term => dispName.includes(term));
-                        const isWaterMeta = (geoData.class === 'natural' && geoData.type === 'water') || geoData.class === 'waterway' || geoData.type === 'sea' || (geoData.address && (geoData.address.sea || geoData.address.ocean));
+                        const isWaterMeta = (geoData.class === 'natural' && geoData.type === 'water') || 
+                                            geoData.class === 'waterway' || geoData.type === 'sea' || 
+                                            (geoData.address && (geoData.address.sea || geoData.address.ocean));
                         
-                        let snappedFar = false;
-                        if (geoData.lat && geoData.lon) {
-                            const snapDist = Math.hypot(pt.lat - parseFloat(geoData.lat), pt.lon - parseFloat(geoData.lon));
-                            if (snapDist > 0.08) snappedFar = true;
-                        }
-
-                        if (!isWaterText && !isWaterMeta && !snappedFar) {
-                            const regionName = (geoData.address && (geoData.address.municipality || geoData.address.town || geoData.address.city)) || "Regional Sector";
-                            rawPoints.push({ lat: pt.lat, lon: pt.lon, name: regionName });
+                        if (isWaterMeta) {
+                            isProvenWater = true;
+                        } else if (geoData.address) {
+                            regionName = geoData.address.municipality || geoData.address.town || geoData.address.city || "Regional Sector";
                         }
                     }
                 }
                 await new Promise(resolve => setTimeout(resolve, 1500)); 
             } catch (err) {
-                console.warn("Fallback point bypassed.");
+                console.warn("Fallback point rate-limited. Proceeding anyway.");
+            }
+
+            if (!isProvenWater) {
+                rawPoints.push({ lat: pt.lat, lon: pt.lon, name: regionName });
             }
         }
     }
