@@ -179,8 +179,9 @@ function getCompassDirection(lat, lon, geoData) {
 
 function buildPopupCard(data, lat, lon) {
     const season = document.getElementById('season-filter')?.value || getCurrentSeason();
-    
-    let reasonText = data.primary_reason || `Live ML forecast indicates a ${data.probability_percentage}% probability for ${data.disaster_type} in the surrounding area.`;
+
+    let reasonText = data.primary_reason || `Live ML forecast indicates a ${data.probability_percentage} probability for ${data.disaster_type} in the surrounding area.`;
+
     if (data.years_of_data) {
         reasonText += ` (Derived from ${data.years_of_data} years of historical data).`;
     }
@@ -191,10 +192,10 @@ function buildPopupCard(data, lat, lon) {
 
     return `
         <div class="glass-popup">
-            <h2>${data.locality}</h2>
+            <h2>${data.locality || 'User Selected Area'}</h2>
             <p class="season-tag">Season: <strong>${season}</strong></p>
             <div class="advisory-section">
-                <p><strong>Seasonal Advisory:</strong> ${data.risk_level.charAt(0).toUpperCase() + data.risk_level.slice(1)} probability of ${data.disaster_type}.</p>
+                <p><strong>Seasonal Advisory:</strong> ${data.risk_rating || 'Medium'} probability of ${data.disaster_type}.</p>
                 <p><strong>Reason:</strong> ${reasonText}</p>
             </div>
             <div class="precautions-section">
@@ -329,15 +330,20 @@ async function scanVisibleArea() {
             if (geoCheck.ok) {
                 apiOffline = false;
                 const geoData = await geoCheck.json();
+                
+                const isWater = (geoData.class === 'natural' && geoData.type === 'water') || 
+                                geoData.class === 'waterway' || 
+                                geoData.type === 'sea' || 
+                                (geoData.address && (geoData.address.sea || geoData.address.ocean || geoData.address.water));
 
-                if (geoData.address && (geoData.address.county || geoData.address.municipality || geoData.address.city || geoData.address.state_district)) {
+                if (isWater) {
+                    isOcean = true; 
+                } else if (geoData.address && (geoData.address.county || geoData.address.municipality || geoData.address.city || geoData.address.state_district)) {
                     rawPoints.push({
                         lat: parseFloat(center.lat),
                         lon: parseFloat(center.lng),
-                        name: geoData.address.county || geoData.address.municipality || "Regional Sector"
+                        name: geoData.address.county || geoData.address.municipality || geoData.address.city || "Regional Sector"
                     });
-                } else if (geoData.address && (geoData.address.sea || geoData.address.ocean || geoData.address.water)) {
-                    isOcean = true;
                 }
             } else {
                 apiOffline = true;
@@ -378,18 +384,19 @@ async function scanVisibleArea() {
     predictionsList.sort((a, b) => parseInt(b.threat.probability_percentage) - parseInt(a.threat.probability_percentage));
 
     for (const pt of predictionsList) {
-        let isTooClose = false;
+        let isDuplicate = false;
 
         for (const cachedPt of plottedMarkersCache) {
             const distance = Math.hypot(pt.lat - cachedPt.lat, pt.lon - cachedPt.lon);
-            if (distance < 0.6) {
-                isTooClose = true;
+            
+            if (distance < 0.6 || cachedPt.name === pt.name) {
+                isDuplicate = true;
                 break;
             }
         }
 
-        if (!isTooClose) {
-            plottedMarkersCache.push({ lat: pt.lat, lon: pt.lon, type: pt.threat.disaster_type });
+        if (!isDuplicate) {
+            plottedMarkersCache.push({ lat: pt.lat, lon: pt.lon, type: pt.threat.disaster_type, name: pt.name });
             plotDynamicMarker(pt.lat, pt.lon, pt.threat, pt.name);
         }
     }
