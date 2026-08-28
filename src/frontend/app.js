@@ -324,21 +324,39 @@ async function scanVisibleArea() {
             }
         }
     } catch (err) {
-        console.warn("Overpass API timeout. Falling back to spatial coordinate grid.");
+        console.warn("Overpass API timeout. Falling back to guarded center scan.");
     }
 
     if (rawPoints.length === 0) {
-        const latStep = (bounds.getNorth() - bounds.getSouth()) / 3;
-        const lonStep = (bounds.getEast() - bounds.getWest()) / 3;
-        
-        for(let i=1; i<=2; i++) {
-            for(let j=1; j<=2; j++) {
-                rawPoints.push({
-                    lat: bounds.getSouth() + (latStep * i),
-                    lon: bounds.getWest() + (lonStep * j),
-                    name: "Scanned Sector" 
-                });
+        const center = bounds.getCenter();
+        try {
+            const geoRes = await fetch(`/api/v1/nominatim-proxy?lat=${center.lat}&lon=${center.lng}&zoom=10`);
+            if (geoRes.ok) {
+                const geoData = await geoRes.json();
+                
+                const dispName = (geoData.display_name || "").toLowerCase();
+                const isWaterText = waterTerms.some(term => dispName.includes(term));
+                
+                let isWaterMetadata = false;
+                if (geoData.lat && geoData.lon) {
+                    const snapDist = Math.hypot(center.lat - parseFloat(geoData.lat), center.lng - parseFloat(geoData.lon));
+                    if (snapDist > 0.02 || isWaterText) isWaterMetadata = true;
+                }
+                
+                if (!isWaterMetadata) {
+                    isWaterMetadata = (geoData.class === 'natural' && geoData.type === 'water') || 
+                                      geoData.class === 'waterway' || geoData.type === 'sea' || 
+                                      (geoData.address && (geoData.address.sea || geoData.address.ocean || geoData.address.water));
+                }
+                
+                if (!isWaterMetadata && geoData.address) {
+                    const addr = geoData.address;
+                    const regionName = addr.municipality || addr.town || addr.village || addr.county || addr.city || "Regional Sector";
+                    rawPoints.push({ lat: center.lat, lon: center.lng, name: regionName });
+                }
             }
+        } catch (err) {
+            console.warn("Fallback geocode failed.");
         }
     }
 
@@ -364,16 +382,16 @@ async function scanVisibleArea() {
     predictionsList.sort((a, b) => parseInt(b.threat.probability_percentage) - parseInt(a.threat.probability_percentage));
 
     let dedupeDistance = 0.2; 
-    if (currentZoom >= 10) dedupeDistance = 0.05;
-    else if (currentZoom >= 8) dedupeDistance = 0.1;
+    if (currentZoom < 6) dedupeDistance = 1.0; 
+    else if (currentZoom < 8) dedupeDistance = 0.6; 
+    else if (currentZoom >= 10) dedupeDistance = 0.05; 
 
     for (const pt of predictionsList) {
         let isDuplicate = false;
 
         for (const cachedPt of plottedMarkersCache) {
             const distance = Math.hypot(pt.lat - cachedPt.lat, pt.lon - cachedPt.lon);
-            
-            if (distance < dedupeDistance) {
+            if (distance < dedupeDistance || cachedPt.name === pt.name) {
                 isDuplicate = true;
                 break;
             }
