@@ -35,45 +35,54 @@ document.addEventListener("DOMContentLoaded", () => {
 
     markersClusterGroup = L.featureGroup().addTo(map);
 
-    try {
-        const season = document.getElementById('season-filter')?.value || getCurrentSeason();
+    map.on('click', async (e) => {
+        if (isMarkerClick) { isMarkerClick = false; return; }
+
+        const popup = L.popup({ offset: [0, -5], className: 'custom-glass-wrapper' })
+            .setLatLng(e.latlng)
+            .setContent('<div class="glass-popup empty-state"><h3>📡 Analyzing ML data...</h3></div>')
+            .openOn(map);
+
+        try {
+            const season = document.getElementById('season-filter')?.value || getCurrentSeason();
             const res = await fetch(`/api/v1/predict?lat=${e.latlng.lat}&lon=${e.latlng.lng}&region=Local Sector&season=${season}`);
             const data = await res.json();
             
-        if (data.predictions && data.predictions[0] && parseInt(data.predictions[0].probability_percentage) >= 30) {
+            if (data.predictions && data.predictions[0] && parseInt(data.predictions[0].probability_percentage) >= 30) {
                 
-            let clickRegionName = "Local Sector";
-            try {
-                const currentZoom = map.getZoom();
-                let nomZoom = 10;
-                if (currentZoom < 5) nomZoom = 3; else if (currentZoom < 7) nomZoom = 5; else if (currentZoom < 9) nomZoom = 8;
+                let clickRegionName = "Local Sector";
+                try {
+                    const currentZoom = map.getZoom();
+                    let nomZoom = 10;
+                    if (currentZoom < 5) nomZoom = 3; else if (currentZoom < 7) nomZoom = 5; else if (currentZoom < 9) nomZoom = 8;
                     
-                const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${e.latlng.lat}&lon=${e.latlng.lng}&zoom=${nomZoom}&accept-language=en`, {
-                    headers: { 'Accept': 'application/json', 'User-Agent': 'Public-Safety-Dashboard/1.0' }
-                });
+                    const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${e.latlng.lat}&lon=${e.latlng.lng}&zoom=${nomZoom}&accept-language=en`, {
+                        headers: { 'Accept': 'application/json', 'User-Agent': 'Public-Safety-Dashboard/1.0' }
+                    });
                     
-                if (geoRes.ok) {
-                    const geoData = await geoRes.json();
-                    if (geoData.address) {
-                        const addr = geoData.address;
-                        let baseName = addr.county || addr.district || addr.city || addr.state || addr.country || "Local Sector";
-                        const prefix = getCompassDirection(e.latlng.lat, e.latlng.lng, geoData);
-                        clickRegionName = prefix + baseName;
+                    if (geoRes.ok) {
+                        const geoData = await geoRes.json();
+                        if (geoData.address) {
+                            const addr = geoData.address;
+                            let baseName = addr.county || addr.district || addr.city || addr.state || addr.country || "Local Sector";
+                            const prefix = getCompassDirection(e.latlng.lat, e.latlng.lng, geoData);
+                            clickRegionName = prefix + baseName;
+                        }
                     }
+                } catch (err) {
+                    console.warn("Click geocode failed.");
                 }
-            } catch (err) {
-                console.warn("Click geocode failed.");
-            }
 
-            popup.close();
-            plotDynamicMarker(e.latlng.lat, e.latlng.lng, data.predictions[0], clickRegionName);
+                popup.close();
+                plotDynamicMarker(e.latlng.lat, e.latlng.lng, data.predictions[0], clickRegionName);
                 
-        } else {
+            } else {
+                popup.setContent('<div class="glass-popup empty-state"><h3>Data says nothing to worry about! 🌿</h3></div>');
+            }
+        } catch (err) {
             popup.setContent('<div class="glass-popup empty-state"><h3>Data says nothing to worry about! 🌿</h3></div>');
         }
-    } catch (err) {
-        popup.setContent('<div class="glass-popup empty-state"><h3>Data says nothing to worry about! 🌿</h3></div>');
-    }
+    });
 
     map.on('moveend', () => {
         isMarkerClick = false;
