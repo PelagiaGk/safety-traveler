@@ -141,21 +141,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 updateRegionMeta(center.lat, center.lng);
             }
             scanVisibleArea();
-        }, 600); 
+        }, 1500); 
     });
     
     map.on('zoomend', () => {
         clearTimeout(scanTimeout);
-        scanTimeout = setTimeout(scanVisibleArea, 600);
+        scanTimeout = setTimeout(scanVisibleArea, 1500); 
     });
-
-    setTimeout(() => {
-        const center = map.getBounds().getCenter();
-        if (typeof updateRegionMeta === 'function') {
-            updateRegionMeta(center.lat, center.lng);
-        }
-        scanVisibleArea();
-    }, 500);
 });
 
 function getCurrentSeason() {
@@ -296,12 +288,12 @@ async function scanVisibleArea() {
 
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); 
+        const timeoutId = setTimeout(() => controller.abort(), 15000); 
 
-        let nodeLimit = currentZoom < 6 ? 15 : (currentZoom >= 10 ? 25 : 20);
+        let nodeLimit = currentZoom < 6 ? 8 : (currentZoom >= 10 ? 15 : 12);
         let placeFilter = currentZoom < 6 ? "country|state|city" : "city|town|village|municipality";
 
-        const query = `[out:json][timeout:8];node["place"~"${placeFilter}"](${s},${w},${n},${e});out ${nodeLimit};`;
+        const query = `[out:json][timeout:12];node["place"~"${placeFilter}"](${s},${w},${n},${e});out ${nodeLimit};`;
         const overpassRes = await fetch(`/api/v1/overpass-proxy?data=${encodeURIComponent(query)}`, {
             signal: controller.signal
         });

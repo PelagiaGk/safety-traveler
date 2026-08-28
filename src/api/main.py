@@ -9,6 +9,7 @@ from fastapi import FastAPI, Query, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+import httpx
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 if str(BASE_DIR) not in sys.path:
@@ -55,14 +56,12 @@ def get_nearest_region(lat: float, lon: float, features: List[Dict]) -> Optional
                 
     return nearest_props
 
-import httpx
-
 @app.get("/api/v1/overpass-proxy")
 async def overpass_proxy(data: str = Query(...)):
     """Proxies Overpass API queries server-side with error logging."""
     url = "https://overpass-api.de/api/interpreter"
     headers = {"User-Agent": "SafetyTravelerDashboard/1.0"}
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=20.0) as client:
         try:
             response = await client.get(url, params={"data": data}, headers=headers, timeout=15.0)
             
