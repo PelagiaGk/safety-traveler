@@ -322,21 +322,23 @@ async function scanVisibleArea() {
             });
         }
     } catch (err) {
-        console.warn("Overpass API unavailable. Falling back to 5-point guarded grid scan.");
+        console.warn("Overpass API unavailable. Falling back to guarded 9-point grid scan.");
     }
 
     if (rawPoints.length === 0) {
-        const center = bounds.getCenter();
-        const latOff = (bounds.getNorth() - bounds.getSouth()) * 0.25;
-        const lonOff = (bounds.getEast() - bounds.getWest()) * 0.25; 
+        const latStep = (bounds.getNorth() - bounds.getSouth()) / 3;
+        const lonStep = (bounds.getEast() - bounds.getWest()) / 3;
         
-        const fallbackPoints = [
-            { lat: center.lat, lon: center.lng }, 
-            { lat: center.lat + latOff, lon: center.lng }, 
-            { lat: center.lat - latOff, lon: center.lng }, 
-            { lat: center.lat, lon: center.lng - lonOff }, 
-            { lat: center.lat, lon: center.lng + lonOff }  
-        ];
+        const fallbackPoints = [];
+        for (let i = 1; i <= 2; i++) {
+            for (let j = 1; j <= 2; j++) {
+                fallbackPoints.push({
+                    lat: bounds.getSouth() + (latStep * i),
+                    lon: bounds.getWest() + (lonStep * j)
+                });
+            }
+        }
+        fallbackPoints.push({ lat: bounds.getCenter().lat, lon: bounds.getCenter().lng });
 
         for (const pt of fallbackPoints) {
             try {
@@ -348,8 +350,14 @@ async function scanVisibleArea() {
                     const isWaterText = waterTerms.some(term => dispName.includes(term));
                     
                     let isWaterMetadata = false;
+                    let plotLat = pt.lat;
+                    let plotLon = pt.lon;
+
                     if (geoData.lat && geoData.lon) {
-                        const snapDist = Math.hypot(pt.lat - parseFloat(geoData.lat), pt.lon - parseFloat(geoData.lon));
+                        plotLat = parseFloat(geoData.lat);
+                        plotLon = parseFloat(geoData.lon);
+                        const snapDist = Math.hypot(pt.lat - plotLat, pt.lon - plotLon);
+                        
                         if (snapDist > 0.02 || isWaterText) isWaterMetadata = true;
                     }
                     
@@ -364,9 +372,10 @@ async function scanVisibleArea() {
                         if (geoData.address) {
                             regionName = geoData.address.municipality || geoData.address.town || geoData.address.village || geoData.address.county || geoData.address.city || "Regional Sector";
                         }
-                        rawPoints.push({ lat: pt.lat, lon: pt.lon, name: regionName });
+                        rawPoints.push({ lat: plotLat, lon: plotLon, name: regionName });
                     }
                 }
+                await new Promise(resolve => setTimeout(resolve, 200));
             } catch (err) {
                 console.warn("Fallback point failed.", err);
             }
@@ -394,9 +403,9 @@ async function scanVisibleArea() {
 
     predictionsList.sort((a, b) => parseInt(b.threat.probability_percentage) - parseInt(a.threat.probability_percentage));
 
-    let dedupeDistance = 0.2; 
-    if (currentZoom < 6) dedupeDistance = 1.0; 
-    else if (currentZoom < 8) dedupeDistance = 0.6; 
+    let dedupeDistance = 0.15; 
+    if (currentZoom < 6) dedupeDistance = 0.8; 
+    else if (currentZoom < 8) dedupeDistance = 0.4; 
     else if (currentZoom >= 10) dedupeDistance = 0.05; 
 
     for (const pt of predictionsList) {
