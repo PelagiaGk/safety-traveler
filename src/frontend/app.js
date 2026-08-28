@@ -72,15 +72,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
                         if (geoData.address) {
                             const addr = geoData.address;
-                            clickRegionName = addr.county || addr.district || addr.city || addr.state || addr.country || "Local Sector";
+                            clickRegionName = addr.municipality || addr.town || addr.village || addr.county || addr.district || addr.city || addr.state || addr.country || "Local Sector";
                         }
                     }
                 } catch (err) {
                     console.warn("Click geocode failed.");
                 }
 
-                data.predictions[0].locality = clickRegionName;
-                popup.setContent(buildPopupCard(data.predictions[0], e.latlng.lat, e.latlng.lng));
+                popup.close();
+                
+                plottedMarkersCache.push({ 
+                    lat: e.latlng.lat, 
+                    lon: e.latlng.lng, 
+                    type: data.predictions[0].disaster_type, 
+                    name: clickRegionName 
+                });
+                
+                plotDynamicMarker(e.latlng.lat, e.latlng.lng, data.predictions[0], clickRegionName);
                 
             } else {
                 popup.setContent('<div class="glass-popup empty-state"><h3>Data says nothing to worry about! 🌿</h3></div>');
@@ -335,7 +343,10 @@ async function scanVisibleArea() {
     if (rawPoints.length === 0) {
         const center = bounds.getCenter();
         try {
-            const geoCheck = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${center.lat}&lon=${center.lng}&zoom=10`);
+            const geoCheck = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${center.lat}&lon=${center.lng}&zoom=10&accept-language=en`, {
+                headers: { 'Accept': 'application/json', 'User-Agent': 'Public-Safety-Dashboard/1.0' }
+            });
+            
             if (geoCheck.ok) {
                 apiOffline = false;
                 const geoData = await geoCheck.json();
@@ -346,12 +357,15 @@ async function scanVisibleArea() {
                                 (geoData.address && (geoData.address.sea || geoData.address.ocean || geoData.address.water));
 
                 if (isWater) {
-                    isOcean = true; 
-                } else if (geoData.address && (geoData.address.county || geoData.address.municipality || geoData.address.city || geoData.address.state_district)) {
+                    isOcean = true;
+                } else if (geoData.address) {
+                    const addr = geoData.address;
+                    const regionName = addr.municipality || addr.town || addr.village || addr.county || addr.city || addr.state_district || addr.state || "Regional Sector";
+                    
                     rawPoints.push({
                         lat: parseFloat(center.lat),
                         lon: parseFloat(center.lng),
-                        name: geoData.address.county || geoData.address.municipality || geoData.address.city || "Regional Sector"
+                        name: regionName
                     });
                 }
             } else {
@@ -360,15 +374,6 @@ async function scanVisibleArea() {
         } catch (err) {
             apiOffline = true;
         }
-    }
-
-    if (rawPoints.length === 0 && apiOffline && !isOcean) {
-        const center = bounds.getCenter();
-        rawPoints.push({
-            lat: parseFloat(center.lat),
-            lon: parseFloat(center.lng),
-            name: "Unresolved Region (API Offline)"
-        });
     }
 
     let predictionsList = [];
