@@ -5,8 +5,7 @@ let overpassCircuitTripped = false;
 let mapIdleTimer;
 let currentRegionName = "Regional View";
 let currentActivePopup = null;
-
-const plottedMarkersCache = [];
+let plottedMarkersCache = [];
 const MIN_DISTANCE_THRESHOLD = 0.25;
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -40,44 +39,49 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const popup = L.popup({ offset: [0, -5], className: 'custom-glass-wrapper' })
             .setLatLng(e.latlng)
-            .setContent('<div class="glass-popup empty-state"><h3>📡 Analyzing coordinates...</h3></div>')
+            .setContent('<div class="glass-popup empty-state"><h3>📡 Analyzing ML data...</h3></div>')
             .openOn(map);
 
         try {
-            const currentZoom = map.getZoom();
-            let nomZoom = 10;
-            if (currentZoom < 5) nomZoom = 3; else if (currentZoom < 7) nomZoom = 5; else if (currentZoom < 9) nomZoom = 8;
+            const season = document.getElementById('season-filter')?.value || getCurrentSeason();
+            const res = await fetch(`/api/v1/predict?lat=${e.latlng.lat}&lon=${e.latlng.lng}&region=Local Sector&season=${season}`);
+            const data = await res.json();
             
-            const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${e.latlng.lat}&lon=${e.latlng.lng}&zoom=${nomZoom}&accept-language=en`, {
-                headers: { 'Accept': 'application/json', 'User-Agent': 'Public-Safety-Dashboard/1.0' }
-            });
-            
-            if (geoRes.ok) {
-                const geoData = await geoRes.json();
+            if (data.predictions && data.predictions[0] && parseInt(data.predictions[0].probability_percentage) >= 30) {
                 
-                if (geoData.address && (geoData.address.ocean || geoData.address.sea || geoData.address.water)) {
-                    popup.setContent('<div class="glass-popup empty-state"><h3>Data says nothing to worry about! 🌿</h3></div>');
-                    return;
-                }
+                let clickRegionName = "Local Sector";
+                try {
+                    const currentZoom = map.getZoom();
+                    let nomZoom = 10;
+                    if (currentZoom < 5) nomZoom = 3; else if (currentZoom < 7) nomZoom = 5; else if (currentZoom < 9) nomZoom = 8;
+                    
+                    const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${e.latlng.lat}&lon=${e.latlng.lng}&zoom=${nomZoom}&accept-language=en`, {
+                        headers: { 'Accept': 'application/json', 'User-Agent': 'Public-Safety-Dashboard/1.0' }
+                    });
+                    
+                    if (geoRes.ok) {
+                        const geoData = await geoRes.json();
+                        const isWater = (geoData.class === 'natural' && geoData.type === 'water') || 
+                                        geoData.class === 'waterway' || geoData.type === 'sea' || 
+                                        (geoData.address && (geoData.address.sea || geoData.address.ocean || geoData.address.water));
+                        
+                        if (isWater) {
+                            popup.setContent('<div class="glass-popup empty-state"><h3>Data says nothing to worry about! 🌿</h3></div>');
+                            return;
+                        }
 
-                const season = document.getElementById('season-filter')?.value || getCurrentSeason();
-                const res = await fetch(`/api/v1/predict?lat=${e.latlng.lat}&lon=${e.latlng.lng}&region=Local Sector&season=${season}`);
-                const data = await res.json();
-                
-                if (data.predictions && data.predictions[0] && parseInt(data.predictions[0].probability_percentage) >= 30) {
-                    let clickRegionName = "Local Sector";
-                    if (geoData.address) {
-                        const addr = geoData.address;
-                        let baseName = addr.county || addr.district || addr.city || addr.state || addr.country || "Local Sector";
-                        const prefix = getCompassDirection(e.latlng.lat, e.latlng.lng, geoData);
-                        clickRegionName = prefix + baseName;
+                        if (geoData.address) {
+                            const addr = geoData.address;
+                            clickRegionName = addr.county || addr.district || addr.city || addr.state || addr.country || "Local Sector";
+                        }
                     }
-
-                    popup.close();
-                    plotDynamicMarker(e.latlng.lat, e.latlng.lng, data.predictions[0], clickRegionName);
-                } else {
-                    popup.setContent('<div class="glass-popup empty-state"><h3>Data says nothing to worry about! 🌿</h3></div>');
+                } catch (err) {
+                    console.warn("Click geocode failed.");
                 }
+
+                data.predictions[0].locality = clickRegionName;
+                popup.setContent(buildPopupCard(data.predictions[0], e.latlng.lat, e.latlng.lng));
+                
             } else {
                 popup.setContent('<div class="glass-popup empty-state"><h3>Data says nothing to worry about! 🌿</h3></div>');
             }
@@ -132,6 +136,11 @@ document.addEventListener("DOMContentLoaded", () => {
         updateRegionMeta(center.lat, center.lng);
         scanVisibleArea();
     }, 500);
+
+    map.on('moveend', scanVisibleArea);
+    map.on('zoomend', scanVisibleArea);
+
+    scanVisibleArea();
 });
 
 function getCurrentSeason() {
