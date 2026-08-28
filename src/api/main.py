@@ -59,14 +59,21 @@ import httpx
 
 @app.get("/api/v1/overpass-proxy")
 async def overpass_proxy(data: str = Query(...)):
-    """Proxies Overpass API queries server-side to bypass browser CORS & 406 errors."""
+    """Proxies Overpass API queries server-side with error logging."""
     url = "https://overpass-api.de/api/interpreter"
+    headers = {"User-Agent": "SafetyTravelerDashboard/1.0"}
     async with httpx.AsyncClient() as client:
         try:
-            response = await client.get(url, params={"data": data}, timeout=10.0)
+            response = await client.get(url, params={"data": data}, headers=headers, timeout=15.0)
+            
+            if response.status_code != 200:
+                print(f"Overpass Error [{response.status_code}]: {response.text}")
+                return {"elements": []} 
+                
             return response.json()
         except Exception as e:
-            raise HTTPException(status_code=502, detail=f"Overpass communication failed: {str(e)}")
+            print(f"Proxy Connection Exception: {str(e)}")
+            return {"elements": []}
         
 @app.get("/api/v1/hierarchy")
 def get_location_hierarchy(data: Dict[str, Any] = Depends(get_disaster_data)):
