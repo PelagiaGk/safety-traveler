@@ -60,20 +60,24 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (geoRes.ok) {
                         const geoData = await geoRes.json();
                         
+                        const dispName = (geoData.display_name || "").toLowerCase();
+                        const waterTerms = ["sea", "ocean", "gulf", "marine", "bay", "sound", "st. lawrence", "strait", "channel", "water"];
+                        const isWaterText = waterTerms.some(term => dispName.includes(term));
+                        
                         if (geoData.lat && geoData.lon) {
                             const snapDist = Math.hypot(e.latlng.lat - parseFloat(geoData.lat), e.latlng.lng - parseFloat(geoData.lon));
                             
-                            if (snapDist > 0.02) {
+                            if (snapDist > 0.01 || isWaterText) {
                                 popup.setContent('<div class="glass-popup empty-state"><h3>Data says nothing to worry about! 🌿</h3></div>');
                                 return;
                             }
                         }
 
-                        const isWater = (geoData.class === 'natural' && geoData.type === 'water') || 
-                                        geoData.class === 'waterway' || geoData.type === 'sea' || 
-                                        (geoData.address && (geoData.address.sea || geoData.address.ocean || geoData.address.water));
+                        const isWaterMetadata = (geoData.class === 'natural' && geoData.type === 'water') || 
+                                                geoData.class === 'waterway' || geoData.type === 'sea' || 
+                                                (geoData.address && (geoData.address.sea || geoData.address.ocean || geoData.address.water));
                         
-                        if (isWater) {
+                        if (isWaterMetadata) {
                             popup.setContent('<div class="glass-popup empty-state"><h3>Data says nothing to worry about! 🌿</h3></div>');
                             return;
                         }
@@ -411,7 +415,8 @@ async function scanVisibleArea() {
             const res = await fetch(url);
             if (res.ok) {
                 const data = await res.json();
-                if (data.predictions && data.predictions.length > 0) {
+                
+                if (data.predictions && data.predictions.length > 0 && parseInt(data.predictions[0].probability_percentage) >= 30) {
                     predictionsList.push({
                         ...pt,
                         threat: data.predictions[0]
