@@ -34,6 +34,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }).addTo(map);
 
     markersClusterGroup = L.featureGroup().addTo(map);
+    const seasonFilter = document.getElementById('season-filter');
+    if (seasonFilter) {
+        seasonFilter.addEventListener('change', () => {
+            markersClusterGroup.clearLayers();
+            
+            plottedMarkersCache = [];
+            
+            scanVisibleArea();
+        });
+    }
 
     map.on('click', async (e) => {
         if (isMarkerClick) { isMarkerClick = false; return; }
@@ -303,8 +313,8 @@ async function scanVisibleArea() {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000); 
 
-        let nodeLimit = currentZoom < 6 ? 10 : (currentZoom >= 10 ? 20 : 15);
-        let placeFilter = currentZoom < 6 ? "country|state|city" : "city|town|village|municipality";
+        let nodeLimit = currentZoom < 6 ? 6 : (currentZoom >= 10 ? 12 : 8);
+        let placeFilter = currentZoom < 6 ? "country|state|city" : "city|town|municipality";
 
         const query = `[out:json][timeout:8];node["place"~"${placeFilter}"](${s},${w},${n},${e});out ${nodeLimit};`;
         const overpassRes = await fetch(`/api/v1/overpass-proxy?data=${encodeURIComponent(query)}`, {
@@ -342,7 +352,7 @@ async function scanVisibleArea() {
         ];
 
         for (const pt of fallbackPoints) {
-            let isValidLand = true;
+            let isValidLand = false; 
             let regionName = "Regional Sector";
 
             try {
@@ -350,28 +360,23 @@ async function scanVisibleArea() {
                 if (geoRes.ok) {
                     const geoData = await geoRes.json();
                     
-                    if (!geoData.error) {
+                    if (!geoData.error && geoData.address) {
                         const isWater = (geoData.class === 'natural' && geoData.type === 'water') || 
-                                        geoData.class === 'waterway' || geoData.type === 'sea';
+                                        geoData.class === 'waterway' || geoData.type === 'sea' ||
+                                        geoData.address.sea || geoData.address.ocean;
                         
                         const dispName = (geoData.display_name || "").toLowerCase();
                         const isWaterText = waterTerms.some(term => dispName.includes(term));
 
-                        let snappedFar = false;
-                        if (geoData.lat && geoData.lon) {
-                            const snapDist = Math.hypot(pt.lat - parseFloat(geoData.lat), pt.lon - parseFloat(geoData.lon));
-                            if (snapDist > 0.1) snappedFar = true; 
-                        }
-
-                        if (isWater || isWaterText || snappedFar) {
-                            isValidLand = false;
-                        } else if (geoData.address) {
+                        if (!isWater && !isWaterText) {
+                            isValidLand = true;
                             regionName = geoData.address.municipality || geoData.address.town || geoData.address.city || "Regional Sector";
                         }
                     }
                 }
+                await new Promise(resolve => setTimeout(resolve, 1500)); 
             } catch (err) {
-                console.warn("Fallback point bypassed.");
+                console.warn("Fallback point bypassed due to network timeout.");
             }
 
             if (isValidLand) {
@@ -403,10 +408,10 @@ async function scanVisibleArea() {
 
     predictionsList.sort((a, b) => parseInt(b.threat.probability_percentage) - parseInt(a.threat.probability_percentage));
 
-    let dedupeDistance = 0.3; 
-    if (currentZoom < 6) dedupeDistance = 1.5; 
-    else if (currentZoom < 8) dedupeDistance = 0.8; 
-    else if (currentZoom >= 10) dedupeDistance = 0.15; 
+    let dedupeDistance = 0.5; 
+    if (currentZoom < 6) dedupeDistance = 2.5; 
+    else if (currentZoom < 8) dedupeDistance = 1.2; 
+    else if (currentZoom >= 10) dedupeDistance = 0.2; 
 
     for (const pt of predictionsList) {
         let isDuplicate = false;
@@ -419,8 +424,8 @@ async function scanVisibleArea() {
                 isDuplicate = true;
                 break;
             }
-            if (distance < 0.05) {
-                nudgeOffset += 0.025; 
+            if (distance < 0.08) {
+                nudgeOffset += 0.04; 
             }
         }
 
