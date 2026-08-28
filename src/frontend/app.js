@@ -292,9 +292,9 @@ async function scanVisibleArea() {
 
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 12000); 
+        const timeoutId = setTimeout(() => controller.abort(), 10000); 
 
-        let nodeLimit = currentZoom < 6 ? 15 : (currentZoom >= 10 ? 25 : 20);
+        let nodeLimit = currentZoom < 6 ? 10 : (currentZoom >= 10 ? 20 : 15);
         let placeFilter = currentZoom < 6 ? "country|state|city" : "city|town|village|municipality";
 
         const query = `[out:json][timeout:8];node["place"~"${placeFilter}"](${s},${w},${n},${e});out ${nodeLimit};`;
@@ -309,7 +309,6 @@ async function scanVisibleArea() {
             if (cityData.elements && cityData.elements.length > 0) {
                 cityData.elements.forEach(city => {
                     const placeName = city.tags['name:en'] || city.tags.name || "Regional Sector";
-                    
                     if (!waterTerms.some(term => placeName.toLowerCase().includes(term))) {
                         rawPoints.push({
                             lat: parseFloat(city.lat),
@@ -321,20 +320,18 @@ async function scanVisibleArea() {
             }
         }
     } catch (err) {
-        console.warn("Overpass API unavailable. Triggering strict grid scan.");
+        console.warn("Overpass API unavailable. Triggering rate-limited fallback scan.");
     }
 
     if (rawPoints.length === 0) {
         const latStep = (bounds.getNorth() - bounds.getSouth()) / 3;
         const lonStep = (bounds.getEast() - bounds.getWest()) / 3;
         
-        const fallbackPoints = [];
-        for (let i = 1; i <= 2; i++) {
-            for (let j = 1; j <= 2; j++) {
-                fallbackPoints.push({ lat: bounds.getSouth() + (latStep * i), lon: bounds.getWest() + (lonStep * j) });
-            }
-        }
-        fallbackPoints.push({ lat: bounds.getCenter().lat, lon: bounds.getCenter().lng });
+        const fallbackPoints = [
+            { lat: bounds.getCenter().lat, lon: bounds.getCenter().lng },
+            { lat: bounds.getSouth() + latStep, lon: bounds.getWest() + lonStep },
+            { lat: bounds.getNorth() - latStep, lon: bounds.getEast() - lonStep }
+        ];
 
         for (const pt of fallbackPoints) {
             try {
@@ -344,30 +341,27 @@ async function scanVisibleArea() {
                     
                     if (geoData.error || !geoData.address) continue;
 
-                    const isWaterMetadata = (geoData.class === 'natural' && geoData.type === 'water') || 
-                                            geoData.class === 'waterway' || geoData.type === 'sea' || 
-                                            geoData.address.sea || geoData.address.ocean || geoData.address.water;
-                    if (isWaterMetadata) continue;
-
+                    const isWater = (geoData.class === 'natural' && geoData.type === 'water') || 
+                                    geoData.class === 'waterway' || geoData.type === 'sea' || 
+                                    geoData.address.sea || geoData.address.ocean || geoData.address.water;
+                    
                     const dispName = (geoData.display_name || "").toLowerCase();
-                    if (waterTerms.some(term => dispName.includes(term))) continue;
+                    const isWaterText = waterTerms.some(term => dispName.includes(term));
 
-                    let plotLat = pt.lat;
-                    let plotLon = pt.lon;
-                    if (geoData.lat && geoData.lon) {
-                        plotLat = parseFloat(geoData.lat);
-                        plotLon = parseFloat(geoData.lon);
+                    if (!isWater && !isWaterText) {
+                        let plotLat = parseFloat(geoData.lat || pt.lat);
+                        let plotLon = parseFloat(geoData.lon || pt.lon);
                         const snapDist = Math.hypot(pt.lat - plotLat, pt.lon - plotLon);
-                        if (snapDist > 0.02) continue; 
+                        
+                        if (snapDist <= 0.03) {
+                            const regionName = geoData.address.municipality || geoData.address.town || geoData.address.village || geoData.address.county || geoData.address.city || "Regional Sector";
+                            rawPoints.push({ lat: plotLat, lon: plotLon, name: regionName });
+                        }
                     }
-                    
-                    const regionName = geoData.address.municipality || geoData.address.town || geoData.address.village || geoData.address.county || geoData.address.city || "Regional Sector";
-                    
-                    rawPoints.push({ lat: plotLat, lon: plotLon, name: regionName });
                 }
-                await new Promise(resolve => setTimeout(resolve, 300));
+                await new Promise(resolve => setTimeout(resolve, 1100));
             } catch (err) {
-                console.warn("Fallback point dropped.");
+                console.warn("Fallback point skipped.");
             }
         }
     }
@@ -379,12 +373,14 @@ async function scanVisibleArea() {
             const res = await fetch(url);
             if (res.ok) {
                 const data = await res.json();
-                
                 if (data.predictions && data.predictions.length > 0 && parseInt(data.predictions[0].probability_percentage) >= 30) {
-                    predictionsList.push({
-                        ...pt,
-                        threat: data.predictions[0]
-                    });
+                    
+                    if (data.predictions[0].disaster_type.toLowerCase().includes("fire")) {
+                        pt.lat -= 0.04; 
+                        pt.lon -= 0.04; 
+                    }
+
+                    predictionsList.push({ ...pt, threat: data.predictions[0] });
                 }
             }
         } catch (err) {
@@ -394,14 +390,14 @@ async function scanVisibleArea() {
 
     predictionsList.sort((a, b) => parseInt(b.threat.probability_percentage) - parseInt(a.threat.probability_percentage));
 
-    let dedupeDistance = 0.25; 
-    if (currentZoom < 6) dedupeDistance = 1.2; 
-    else if (currentZoom < 8) dedupeDistance = 0.7; 
-    else if (currentZoom >= 10) dedupeDistance = 0.1; 
+    let dedupeDistance = 0.3; 
+    if (currentZoom < 6) dedupeDistance = 1.5; 
+    else if (currentZoom < 8) dedupeDistance = 0.8; 
+    else if (currentZoom >= 10) dedupeDistance = 0.15; 
 
     for (const pt of predictionsList) {
         let isDuplicate = false;
-        let overlapOffset = 0; 
+        let nudgeOffset = 0; 
 
         for (const cachedPt of plottedMarkersCache) {
             const distance = Math.hypot(pt.lat - cachedPt.lat, pt.lon - cachedPt.lon);
@@ -411,13 +407,13 @@ async function scanVisibleArea() {
                 break;
             }
             
-            if (distance < 0.02) {
-                overlapOffset += 0.015;
+            if (distance < 0.05) {
+                nudgeOffset += 0.025;
             }
         }
 
         if (!isDuplicate) {
-            let finalLat = pt.lat + overlapOffset;
+            let finalLat = pt.lat + nudgeOffset;
             plottedMarkersCache.push({ lat: finalLat, lon: pt.lon, type: pt.threat.disaster_type, name: pt.name });
             plotDynamicMarker(finalLat, pt.lon, pt.threat, pt.name);
         }
