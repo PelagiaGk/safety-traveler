@@ -304,25 +304,26 @@ async function scanVisibleArea() {
 
         clearTimeout(timeoutId);
 
-        if (!overpassRes.ok) {
-            throw new Error(`Overpass HTTP error: ${overpassRes.status}`);
-        }
-
-        const cityData = await overpassRes.json();
-        if (cityData.elements && cityData.elements.length > 0) {
-            cityData.elements.forEach(city => {
-                const placeName = city.tags['name:en'] || city.tags.name || "Regional Sector";
-                if (!waterTerms.some(term => placeName.toLowerCase().includes(term))) {
-                    rawPoints.push({
-                        lat: parseFloat(city.lat),
-                        lon: parseFloat(city.lon),
-                        name: placeName
-                    });
-                }
-            });
+        if (overpassRes.ok) {
+            const cityData = await overpassRes.json();
+            if (cityData.elements && cityData.elements.length > 0) {
+                cityData.elements.forEach(city => {
+                    const placeName = city.tags['name:en'] || city.tags.name || "Regional Sector";
+                    const placeType = city.tags.place || "unknown"; 
+                    
+                    if (!waterTerms.some(term => placeName.toLowerCase().includes(term))) {
+                        rawPoints.push({
+                            lat: parseFloat(city.lat),
+                            lon: parseFloat(city.lon),
+                            name: placeName,
+                            placeType: placeType 
+                        });
+                    }
+                });
+            }
         }
     } catch (err) {
-        console.warn("Overpass API unavailable. Falling back to guarded 9-point grid scan.");
+        console.warn("Overpass API unavailable. Triggering strict grid scan.");
     }
 
     if (rawPoints.length === 0) {
@@ -332,10 +333,7 @@ async function scanVisibleArea() {
         const fallbackPoints = [];
         for (let i = 1; i <= 2; i++) {
             for (let j = 1; j <= 2; j++) {
-                fallbackPoints.push({
-                    lat: bounds.getSouth() + (latStep * i),
-                    lon: bounds.getWest() + (lonStep * j)
-                });
+                fallbackPoints.push({ lat: bounds.getSouth() + (latStep * i), lon: bounds.getWest() + (lonStep * j) });
             }
         }
         fallbackPoints.push({ lat: bounds.getCenter().lat, lon: bounds.getCenter().lng });
@@ -346,38 +344,33 @@ async function scanVisibleArea() {
                 if (geoRes.ok) {
                     const geoData = await geoRes.json();
                     
+                    if (geoData.error || !geoData.address) continue;
+
+                    const isWaterMetadata = (geoData.class === 'natural' && geoData.type === 'water') || 
+                                            geoData.class === 'waterway' || geoData.type === 'sea' || 
+                                            geoData.address.sea || geoData.address.ocean || geoData.address.water;
+                    if (isWaterMetadata) continue;
+
                     const dispName = (geoData.display_name || "").toLowerCase();
-                    const isWaterText = waterTerms.some(term => dispName.includes(term));
-                    
-                    let isWaterMetadata = false;
+                    if (waterTerms.some(term => dispName.includes(term))) continue;
+
                     let plotLat = pt.lat;
                     let plotLon = pt.lon;
-
                     if (geoData.lat && geoData.lon) {
                         plotLat = parseFloat(geoData.lat);
                         plotLon = parseFloat(geoData.lon);
                         const snapDist = Math.hypot(pt.lat - plotLat, pt.lon - plotLon);
-                        
-                        if (snapDist > 0.02 || isWaterText) isWaterMetadata = true;
+                        if (snapDist > 0.02) continue; 
                     }
                     
-                    if (!isWaterMetadata) {
-                        isWaterMetadata = (geoData.class === 'natural' && geoData.type === 'water') || 
-                                          geoData.class === 'waterway' || geoData.type === 'sea' || 
-                                          (geoData.address && (geoData.address.sea || geoData.address.ocean || geoData.address.water));
-                    }
+                    const regionName = geoData.address.municipality || geoData.address.town || geoData.address.village || geoData.address.county || geoData.address.city || "Regional Sector";
+                    const placeType = geoData.type || "unknown";
                     
-                    if (!isWaterMetadata) {
-                        let regionName = "Regional Sector";
-                        if (geoData.address) {
-                            regionName = geoData.address.municipality || geoData.address.town || geoData.address.village || geoData.address.county || geoData.address.city || "Regional Sector";
-                        }
-                        rawPoints.push({ lat: plotLat, lon: plotLon, name: regionName });
-                    }
+                    rawPoints.push({ lat: plotLat, lon: plotLon, name: regionName, placeType: placeType });
                 }
-                await new Promise(resolve => setTimeout(resolve, 200));
+                await new Promise(resolve => setTimeout(resolve, 300));
             } catch (err) {
-                console.warn("Fallback point failed.", err);
+                console.warn("Fallback point dropped.");
             }
         }
     }
@@ -389,11 +382,24 @@ async function scanVisibleArea() {
             const res = await fetch(url);
             if (res.ok) {
                 const data = await res.json();
-                if (data.predictions && data.predictions.length > 0 && parseInt(data.predictions[0].probability_percentage) >= 30) {
-                    predictionsList.push({
-                        ...pt,
-                        threat: data.predictions[0]
-                    });
+                
+                if (data.predictions && data.predictions.length > 0) {
+                    let validThreat = null;
+                    
+                    for (const pred of data.predictions) {
+                        if (parseInt(pred.probability_percentage) < 30) continue; 
+                        
+                        const isUrbanWildfire = pred.disaster_type.toLowerCase().includes('fire') && pt.placeType === 'city';
+                        
+                        if (!isUrbanWildfire) {
+                            validThreat = pred;
+                            break; 
+                        }
+                    }
+
+                    if (validThreat) {
+                        predictionsList.push({ ...pt, threat: validThreat });
+                    }
                 }
             }
         } catch (err) {
@@ -403,25 +409,32 @@ async function scanVisibleArea() {
 
     predictionsList.sort((a, b) => parseInt(b.threat.probability_percentage) - parseInt(a.threat.probability_percentage));
 
-    let dedupeDistance = 0.15; 
-    if (currentZoom < 6) dedupeDistance = 0.8; 
-    else if (currentZoom < 8) dedupeDistance = 0.4; 
-    else if (currentZoom >= 10) dedupeDistance = 0.05; 
+    let dedupeDistance = 0.25; 
+    if (currentZoom < 6) dedupeDistance = 1.2; 
+    else if (currentZoom < 8) dedupeDistance = 0.7; 
+    else if (currentZoom >= 10) dedupeDistance = 0.1; 
 
     for (const pt of predictionsList) {
         let isDuplicate = false;
+        let overlapOffset = 0; 
 
         for (const cachedPt of plottedMarkersCache) {
             const distance = Math.hypot(pt.lat - cachedPt.lat, pt.lon - cachedPt.lon);
-            if (distance < dedupeDistance) {
+            
+            if (distance < dedupeDistance && cachedPt.type === pt.threat.disaster_type) {
                 isDuplicate = true;
                 break;
+            }
+            
+            if (distance < 0.02) {
+                overlapOffset += 0.015;
             }
         }
 
         if (!isDuplicate) {
-            plottedMarkersCache.push({ lat: pt.lat, lon: pt.lon, type: pt.threat.disaster_type, name: pt.name });
-            plotDynamicMarker(pt.lat, pt.lon, pt.threat, pt.name);
+            let finalLat = pt.lat + overlapOffset;
+            plottedMarkersCache.push({ lat: finalLat, lon: pt.lon, type: pt.threat.disaster_type, name: pt.name });
+            plotDynamicMarker(finalLat, pt.lon, pt.threat, pt.name);
         }
     }
 }
