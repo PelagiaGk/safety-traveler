@@ -59,6 +59,16 @@ document.addEventListener("DOMContentLoaded", () => {
                      
                     if (geoRes.ok) {
                         const geoData = await geoRes.json();
+                        
+                        if (geoData.lat && geoData.lon) {
+                            const snapDist = Math.hypot(e.latlng.lat - parseFloat(geoData.lat), e.latlng.lng - parseFloat(geoData.lon));
+                            
+                            if (snapDist > 0.08) {
+                                popup.setContent('<div class="glass-popup empty-state"><h3>Data says nothing to worry about! 🌿</h3></div>');
+                                return;
+                            }
+                        }
+
                         const isWater = (geoData.class === 'natural' && geoData.type === 'water') || 
                                         geoData.class === 'waterway' || geoData.type === 'sea' || 
                                         (geoData.address && (geoData.address.sea || geoData.address.ocean || geoData.address.water));
@@ -359,7 +369,14 @@ async function scanVisibleArea() {
                 if (geoData.error === "Rate limited") {
                     apiOffline = true;
                 } else {
-                    const isWater = (geoData.class === 'natural' && geoData.type === 'water') || 
+                    let snappedTooFar = false;
+                    if (geoData.lat && geoData.lon) {
+                        const snapDist = Math.hypot(center.lat - parseFloat(geoData.lat), center.lng - parseFloat(geoData.lon));
+                        if (snapDist > 0.1) snappedTooFar = true; 
+                    }
+
+                    const isWater = snappedTooFar || 
+                                    (geoData.class === 'natural' && geoData.type === 'water') || 
                                     geoData.class === 'waterway' || 
                                     geoData.type === 'sea' || 
                                     (geoData.address && (geoData.address.sea || geoData.address.ocean || geoData.address.water));
