@@ -268,6 +268,8 @@ async function scanVisibleArea() {
     let rawPoints = [];
     let isOcean = false;
     let apiOffline = false;
+    
+    const waterTerms = ["sea", "ocean", "gulf", "marine", "bay", "sound", "st. lawrence", "strait", "channel"];
 
     if (!overpassCircuitTripped) {
         try {
@@ -297,11 +299,15 @@ async function scanVisibleArea() {
                 const cityData = await overpassRes.json();
                 if (cityData.elements && cityData.elements.length > 0) {
                     cityData.elements.forEach(city => {
-                        rawPoints.push({
-                            lat: parseFloat(city.lat),
-                            lon: parseFloat(city.lon),
-                            name: city.tags['name:en'] || city.tags.name || "Regional Sector"
-                        });
+                        const placeName = city.tags['name:en'] || city.tags.name || "Regional Sector";
+                        
+                        if (!waterTerms.some(term => placeName.toLowerCase().includes(term))) {
+                            rawPoints.push({
+                                lat: parseFloat(city.lat),
+                                lon: parseFloat(city.lon),
+                                name: placeName
+                            });
+                        }
                     });
                 }
             } else {
@@ -375,29 +381,16 @@ async function scanVisibleArea() {
         let isTooClose = false;
 
         for (const cachedPt of plottedMarkersCache) {
-            if (cachedPt.type === pt.threat.disaster_type) {
-                const distance = Math.sqrt(Math.pow(pt.lat - cachedPt.lat, 2) + Math.pow(pt.lon - cachedPt.lon, 2));
-                if (distance < MIN_DISTANCE_THRESHOLD) {
-                    isTooClose = true;
-                    break;
-                }
+            const distance = Math.hypot(pt.lat - cachedPt.lat, pt.lon - cachedPt.lon);
+            if (distance < 0.6) {
+                isTooClose = true;
+                break;
             }
         }
 
         if (!isTooClose) {
-            let finalLat = pt.lat;
-            let finalLon = pt.lon;
-
-            for (const cachedPt of plottedMarkersCache) {
-                if (Math.abs(finalLat - cachedPt.lat) < 0.02 && Math.abs(finalLon - cachedPt.lon) < 0.02) {
-                    finalLat += 0.025;
-                    finalLon += 0.025;
-                    break;
-                }
-            }
-
-            plottedMarkersCache.push({ lat: finalLat, lon: finalLon, type: pt.threat.disaster_type });
-            plotDynamicMarker(finalLat, finalLon, pt.threat, pt.name);
+            plottedMarkersCache.push({ lat: pt.lat, lon: pt.lon, type: pt.threat.disaster_type });
+            plotDynamicMarker(pt.lat, pt.lon, pt.threat, pt.name);
         }
     }
 }
