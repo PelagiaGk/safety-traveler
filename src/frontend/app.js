@@ -56,7 +56,11 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (currentZoom < 5) nomZoom = 3; else if (currentZoom < 7) nomZoom = 5; else if (currentZoom < 9) nomZoom = 8;
                     
                     const geoRes = await fetch(`/api/v1/nominatim-proxy?lat=${e.latlng.lat}&lon=${e.latlng.lng}&zoom=${nomZoom}`);
-                     
+                    
+                    if (geoData.error || !geoData.address) {
+                        popup.setContent('<div class="glass-popup empty-state"><h3>Data says nothing to worry about! 🌿</h3></div>');
+                        return; 
+                    } 
                     if (geoRes.ok) {
                         const geoData = await geoRes.json();
                         const dispName = (geoData.display_name || "").toLowerCase();
@@ -279,11 +283,6 @@ async function updateRegionMeta(lat, lon) {
 }
 
 async function scanVisibleArea() {
-    if (window.isMapScanning) {
-        return; 
-    }
-    window.isMapScanning = true;
-
     try {
         const bounds = map.getBounds();
         const season = document.getElementById('season-filter')?.value || getCurrentSeason();
@@ -381,8 +380,12 @@ async function scanVisibleArea() {
                 const res = await fetch(url);
                 if (res.ok) {
                     const data = await res.json();
-                    if (data.predictions && data.predictions.length > 0 && parseInt(data.predictions[0].probability_percentage) >= 30) {
-                        predictionsList.push({ ...pt, threat: data.predictions[0] });
+                    if (data.predictions && data.predictions.length > 0) {
+                        data.predictions.forEach(pred => {
+                            if (parseInt(pred.probability_percentage) >= 30) {
+                                predictionsList.push({ ...pt, threat: pred });
+                            }
+                        });
                     }
                 }
             } catch (err) {
@@ -419,9 +422,8 @@ async function scanVisibleArea() {
                 plotDynamicMarker(finalLat, pt.lon, pt.threat, pt.name);
             }
         }
-
-    } finally {
-        window.isMapScanning = false;
+    } catch (err) {
+        console.error("Error scanning visible area:", err);
     }
 }
 
