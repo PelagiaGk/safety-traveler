@@ -292,12 +292,12 @@ async function scanVisibleArea() {
 
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); 
+        const timeoutId = setTimeout(() => controller.abort(), 8000); 
 
         let nodeLimit = currentZoom < 6 ? 10 : (currentZoom >= 10 ? 20 : 15);
         let placeFilter = currentZoom < 6 ? "country|state|city" : "city|town|village|municipality";
 
-        const query = `[out:json][timeout:8];node["place"~"${placeFilter}"](${s},${w},${n},${e});out ${nodeLimit};`;
+        const query = `[out:json][timeout:5];node["place"~"${placeFilter}"](${s},${w},${n},${e});out ${nodeLimit};`;
         const overpassRes = await fetch(`/api/v1/overpass-proxy?data=${encodeURIComponent(query)}`, {
             signal: controller.signal
         });
@@ -310,27 +310,28 @@ async function scanVisibleArea() {
                 cityData.elements.forEach(city => {
                     const placeName = city.tags['name:en'] || city.tags.name || "Regional Sector";
                     if (!waterTerms.some(term => placeName.toLowerCase().includes(term))) {
-                        rawPoints.push({
-                            lat: parseFloat(city.lat),
-                            lon: parseFloat(city.lon),
-                            name: placeName
-                        });
+                        rawPoints.push({ lat: parseFloat(city.lat), lon: parseFloat(city.lon), name: placeName });
                     }
                 });
             }
+        } else {
+            throw new Error("Overpass HTTP error");
         }
     } catch (err) {
         console.warn("Overpass API unavailable. Triggering rate-limited fallback scan.");
     }
 
     if (rawPoints.length === 0) {
-        const latStep = (bounds.getNorth() - bounds.getSouth()) / 3;
-        const lonStep = (bounds.getEast() - bounds.getWest()) / 3;
+        const center = bounds.getCenter();
+        const latOff = (bounds.getNorth() - bounds.getSouth()) * 0.25;
+        const lonOff = (bounds.getEast() - bounds.getWest()) * 0.25;
         
         const fallbackPoints = [
-            { lat: bounds.getCenter().lat, lon: bounds.getCenter().lng },
-            { lat: bounds.getSouth() + latStep, lon: bounds.getWest() + lonStep },
-            { lat: bounds.getNorth() - latStep, lon: bounds.getEast() - lonStep }
+            { lat: center.lat, lon: center.lng },
+            { lat: center.lat + latOff, lon: center.lng - lonOff }, 
+            { lat: center.lat + latOff, lon: center.lng + lonOff }, 
+            { lat: center.lat - latOff, lon: center.lng - lonOff }, 
+            { lat: center.lat - latOff, lon: center.lng + lonOff } 
         ];
 
         for (const pt of fallbackPoints) {
@@ -338,7 +339,6 @@ async function scanVisibleArea() {
                 const geoRes = await fetch(`/api/v1/nominatim-proxy?lat=${pt.lat}&lon=${pt.lon}&zoom=10`);
                 if (geoRes.ok) {
                     const geoData = await geoRes.json();
-                    
                     if (geoData.error || !geoData.address) continue;
 
                     const isWater = (geoData.class === 'natural' && geoData.type === 'water') || 
@@ -348,18 +348,19 @@ async function scanVisibleArea() {
                     const dispName = (geoData.display_name || "").toLowerCase();
                     const isWaterText = waterTerms.some(term => dispName.includes(term));
 
-                    if (!isWater && !isWaterText) {
-                        let plotLat = parseFloat(geoData.lat || pt.lat);
-                        let plotLon = parseFloat(geoData.lon || pt.lon);
-                        const snapDist = Math.hypot(pt.lat - plotLat, pt.lon - plotLon);
+                    let snappedFar = false;
+                    if (geoData.lat && geoData.lon) {
+                        const snapDist = Math.hypot(pt.lat - parseFloat(geoData.lat), pt.lon - parseFloat(geoData.lon));
+                        if (snapDist > 0.06) snappedFar = true; 
+                    }
+
+                    if (!isWater && !isWaterText && !snappedFar) {
+                        const regionName = geoData.address.municipality || geoData.address.town || geoData.address.village || geoData.address.county || geoData.address.city || "Regional Sector";
                         
-                        if (snapDist <= 0.03) {
-                            const regionName = geoData.address.municipality || geoData.address.town || geoData.address.village || geoData.address.county || geoData.address.city || "Regional Sector";
-                            rawPoints.push({ lat: plotLat, lon: plotLon, name: regionName });
-                        }
+                        rawPoints.push({ lat: pt.lat, lon: pt.lon, name: regionName });
                     }
                 }
-                await new Promise(resolve => setTimeout(resolve, 1100));
+                await new Promise(resolve => setTimeout(resolve, 1100)); 
             } catch (err) {
                 console.warn("Fallback point skipped.");
             }
@@ -374,12 +375,6 @@ async function scanVisibleArea() {
             if (res.ok) {
                 const data = await res.json();
                 if (data.predictions && data.predictions.length > 0 && parseInt(data.predictions[0].probability_percentage) >= 30) {
-                    
-                    if (data.predictions[0].disaster_type.toLowerCase().includes("fire")) {
-                        pt.lat -= 0.04; 
-                        pt.lon -= 0.04; 
-                    }
-
                     predictionsList.push({ ...pt, threat: data.predictions[0] });
                 }
             }
