@@ -48,8 +48,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const data = await res.json();
             
             if (data.predictions && data.predictions[0]) {
-                
-                let clickRegionName = "Local Sector";
+                let clickRegionName = null; 
                 try {
                     const currentZoom = map.getZoom();
                     let nomZoom = 10;
@@ -82,16 +81,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
                         if (geoData.address) {
                             const addr = geoData.address;
-                            clickRegionName = addr.municipality || addr.town || addr.village || addr.county || addr.district || addr.city || addr.state || addr.country || "Local Sector";
+                            clickRegionName = addr.municipality || addr.town || addr.village || addr.county || addr.district || addr.city || addr.state || addr.country || "Regional Sector";
                         }
                     }
                 } catch (err) {
                     console.warn("Click geocode failed.");
                 }
 
+                if (!clickRegionName) {
+                    popup.setContent('<div class="glass-popup empty-state"><h3>Data says nothing to worry about! 🌿</h3></div>');
+                    return;
+                }
+
                 data.predictions[0].locality = clickRegionName;
                 popup.setContent(buildPopupCard(data.predictions[0], e.latlng.lat, e.latlng.lng));
-                
+
             } else {
                 popup.setContent('<div class="glass-popup empty-state"><h3>Data says nothing to worry about! 🌿</h3></div>');
             }

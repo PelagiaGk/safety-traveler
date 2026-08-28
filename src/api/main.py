@@ -56,22 +56,39 @@ def get_nearest_region(lat: float, lon: float, features: List[Dict]) -> Optional
                 
     return nearest_props
 
+@app.get("/api/v1/nominatim-proxy")
+async def nominatim_proxy(lat: float, lon: float, zoom: int = 10):
+    """Proxies Nominatim requests with strict OSM-compliant headers."""
+    url = "https://nominatim.openstreetmap.org/reverse"
+    params = {"format": "json", "lat": lat, "lon": lon, "zoom": zoom, "accept-language": "en"}
+    
+    headers = {"User-Agent": "PublicSafetyDashboard/1.0 (open-source-dev@example.com)"}
+    
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        try:
+            response = await client.get(url, params=params, headers=headers)
+            if response.status_code == 429:
+                return {"error": "Rate limited", "address": {}}
+            return response.json()
+        except Exception as e:
+            return {"error": str(e), "address": {}}
+
+
 @app.get("/api/v1/overpass-proxy")
 async def overpass_proxy(data: str):
-    """Resilient proxy that tries multiple global OSM mirrors to bypass IP bans and downtime."""
-    
+    """Resilient proxy using reliable international mirrors to bypass cloud IP blocks."""
     endpoints = [
-        "https://lz4.overpass-api.de/api/interpreter",
-        "https://z.overpass-api.de/api/interpreter",
-        "https://overpass-api.de/api/interpreter"
+        "https://overpass.openstreetmap.ru/api/interpreter", 
+        "https://overpass.osm.ch/api/interpreter",            
+        "https://overpass-api.de/api/interpreter"            
     ]
     
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "User-Agent": "PublicSafetyDashboard/1.0 (open-source-dev@example.com)",
         "Accept": "*/*"
     }
     
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    async with httpx.AsyncClient(timeout=15.0) as client:
         for url in endpoints:
             try:
                 response = await client.get(url, params={"data": data}, headers=headers)
@@ -81,29 +98,7 @@ async def overpass_proxy(data: str):
                 continue 
                 
     return {"elements": []}
-
-@app.get("/api/v1/nominatim-proxy")
-async def nominatim_proxy(lat: float, lon: float, zoom: int = 10):
-    """Proxies Nominatim requests to bypass CORS and manage strict rate limits."""
-    url = "https://nominatim.openstreetmap.org/reverse"
-    params = {
-        "format": "json", 
-        "lat": lat, 
-        "lon": lon, 
-        "zoom": zoom, 
-        "accept-language": "en"
-    }
-    headers = {"User-Agent": "Public-Safety-Dashboard/1.0"}
-    
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(url, params=params, headers=headers, timeout=10.0)
-            if response.status_code == 429:
-                return {"error": "Rate limited", "address": {}}
-            return response.json()
-        except Exception as e:
-            return {"error": str(e), "address": {}}
-                
+         
 @app.get("/api/v1/hierarchy")
 def get_location_hierarchy(data: Dict[str, Any] = Depends(get_disaster_data)):
     hierarchy = {}
