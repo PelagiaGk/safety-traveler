@@ -55,6 +55,19 @@ def get_nearest_region(lat: float, lon: float, features: List[Dict]) -> Optional
                 
     return nearest_props
 
+import httpx
+
+@app.get("/api/v1/overpass-proxy")
+async def overpass_proxy(data: str = Query(...)):
+    """Proxies Overpass API queries server-side to bypass browser CORS & 406 errors."""
+    url = "https://overpass-api.de/api/interpreter"
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(url, params={"data": data}, timeout=10.0)
+            return response.json()
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Overpass communication failed: {str(e)}")
+        
 @app.get("/api/v1/hierarchy")
 def get_location_hierarchy(data: Dict[str, Any] = Depends(get_disaster_data)):
     hierarchy = {}
