@@ -74,7 +74,29 @@ async def overpass_proxy(data: str = Query(...)):
         except Exception as e:
             print(f"Proxy Connection Exception: {str(e)}")
             return {"elements": []}
-        
+
+@app.get("/api/v1/nominatim-proxy")
+async def nominatim_proxy(lat: float, lon: float, zoom: int = 10):
+    """Proxies Nominatim requests to bypass CORS and manage strict rate limits."""
+    url = "https://nominatim.openstreetmap.org/reverse"
+    params = {
+        "format": "json", 
+        "lat": lat, 
+        "lon": lon, 
+        "zoom": zoom, 
+        "accept-language": "en"
+    }
+    headers = {"User-Agent": "Public-Safety-Dashboard/1.0"}
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(url, params=params, headers=headers, timeout=10.0)
+            if response.status_code == 429:
+                return {"error": "Rate limited", "address": {}}
+            return response.json()
+        except Exception as e:
+            return {"error": str(e), "address": {}}
+                
 @app.get("/api/v1/hierarchy")
 def get_location_hierarchy(data: Dict[str, Any] = Depends(get_disaster_data)):
     hierarchy = {}

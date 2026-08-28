@@ -55,10 +55,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     let nomZoom = 10;
                     if (currentZoom < 5) nomZoom = 3; else if (currentZoom < 7) nomZoom = 5; else if (currentZoom < 9) nomZoom = 8;
                     
-                    const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${e.latlng.lat}&lon=${e.latlng.lng}&zoom=${nomZoom}&accept-language=en`, {
-                        headers: { 'Accept': 'application/json', 'User-Agent': 'Public-Safety-Dashboard/1.0' }
-                    });
-                    
+                    const geoRes = await fetch(`/api/v1/nominatim-proxy?lat=${lat}&lon=${lon}&zoom=${nomZoom}`);
+                     
                     if (geoRes.ok) {
                         const geoData = await geoRes.json();
                         const isWater = (geoData.class === 'natural' && geoData.type === 'water') || 
@@ -145,8 +143,17 @@ document.addEventListener("DOMContentLoaded", () => {
         scanVisibleArea();
     }, 500);
 
-    map.on('moveend', scanVisibleArea);
-    map.on('zoomend', scanVisibleArea);
+    let scanTimeout;
+    
+    map.on('moveend', () => {
+        clearTimeout(scanTimeout);
+        scanTimeout = setTimeout(scanVisibleArea, 600); 
+    });
+    
+    map.on('zoomend', () => {
+        clearTimeout(scanTimeout);
+        scanTimeout = setTimeout(scanVisibleArea, 600);
+    });
 
     scanVisibleArea();
 });
@@ -343,30 +350,32 @@ async function scanVisibleArea() {
     if (rawPoints.length === 0) {
         const center = bounds.getCenter();
         try {
-            const geoCheck = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${center.lat}&lon=${center.lng}&zoom=10&accept-language=en`, {
-                headers: { 'Accept': 'application/json', 'User-Agent': 'Public-Safety-Dashboard/1.0' }
-            });
+            const geoCheck = await fetch(`/api/v1/nominatim-proxy?lat=${center.lat}&lon=${center.lng}&zoom=10`);
             
             if (geoCheck.ok) {
                 apiOffline = false;
                 const geoData = await geoCheck.json();
                 
-                const isWater = (geoData.class === 'natural' && geoData.type === 'water') || 
-                                geoData.class === 'waterway' || 
-                                geoData.type === 'sea' || 
-                                (geoData.address && (geoData.address.sea || geoData.address.ocean || geoData.address.water));
+                if (geoData.error === "Rate limited") {
+                    apiOffline = true;
+                } else {
+                    const isWater = (geoData.class === 'natural' && geoData.type === 'water') || 
+                                    geoData.class === 'waterway' || 
+                                    geoData.type === 'sea' || 
+                                    (geoData.address && (geoData.address.sea || geoData.address.ocean || geoData.address.water));
 
-                if (isWater) {
-                    isOcean = true;
-                } else if (geoData.address) {
-                    const addr = geoData.address;
-                    const regionName = addr.municipality || addr.town || addr.village || addr.county || addr.city || addr.state_district || addr.state || "Regional Sector";
-                    
-                    rawPoints.push({
-                        lat: parseFloat(center.lat),
-                        lon: parseFloat(center.lng),
-                        name: regionName
-                    });
+                    if (isWater) {
+                        isOcean = true;
+                    } else if (geoData.address) {
+                        const addr = geoData.address;
+                        const regionName = addr.municipality || addr.town || addr.village || addr.county || addr.city || addr.state_district || addr.state || "Regional Sector";
+                        
+                        rawPoints.push({
+                            lat: parseFloat(center.lat),
+                            lon: parseFloat(center.lng),
+                            name: regionName
+                        });
+                    }
                 }
             } else {
                 apiOffline = true;
