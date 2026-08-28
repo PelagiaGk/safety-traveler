@@ -54,8 +54,7 @@ document.addEventListener("DOMContentLoaded", () => {
             .openOn(map);
 
         try {
-            const season = document.getElementById('season-filter')?.value || getCurrentSeason();
-            
+            const season = document.getElementById('season-filter')?.value || 'Summer';
             let validLandName = null;
             
             const currentZoom = map.getZoom();
@@ -66,7 +65,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (geoRes.ok) {
                     const geoData = await geoRes.json();
                     
-                    if (!geoData.error && geoData.address) {
+                    if (!geoData.error) {
                         const dispName = (geoData.display_name || "").toLowerCase();
                         const waterTerms = ["sea", "ocean", "gulf", "marine", "bay", "strait", "water"];
                         const isWaterText = waterTerms.some(term => dispName.includes(term));
@@ -82,7 +81,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         }
 
                         if (!isWaterText && !isWaterMeta && !snappedFar) {
-                            validLandName = geoData.address.municipality || geoData.address.town || geoData.address.village || geoData.address.county || geoData.address.city || "Regional Sector";
+                            validLandName = (geoData.address && (geoData.address.municipality || geoData.address.town || geoData.address.village || geoData.address.county || geoData.address.city)) || "Regional Sector";
                         }
                     }
                 }
@@ -290,7 +289,7 @@ async function updateRegionMeta(lat, lon) {
 
 async function scanVisibleArea() {
     const bounds = map.getBounds();
-    const season = document.getElementById('season-filter')?.value || getCurrentSeason();
+    const season = document.getElementById('season-filter')?.value || 'Summer';
     const currentZoom = map.getZoom();
 
     const s = bounds.getSouth().toFixed(4);
@@ -346,10 +345,11 @@ async function scanVisibleArea() {
                 const geoRes = await fetch(`/api/v1/nominatim-proxy?lat=${pt.lat}&lon=${pt.lon}&zoom=10`);
                 if (geoRes.ok) {
                     const geoData = await geoRes.json();
-                    if (!geoData.error && geoData.address) {
+                    
+                    if (!geoData.error) {
                         const dispName = (geoData.display_name || "").toLowerCase();
                         const isWaterText = waterTerms.some(term => dispName.includes(term));
-                        const isWaterMeta = (geoData.class === 'natural' && geoData.type === 'water') || geoData.class === 'waterway' || geoData.type === 'sea' || geoData.address.sea || geoData.address.ocean;
+                        const isWaterMeta = (geoData.class === 'natural' && geoData.type === 'water') || geoData.class === 'waterway' || geoData.type === 'sea' || (geoData.address && (geoData.address.sea || geoData.address.ocean));
                         
                         let snappedFar = false;
                         if (geoData.lat && geoData.lon) {
@@ -358,7 +358,7 @@ async function scanVisibleArea() {
                         }
 
                         if (!isWaterText && !isWaterMeta && !snappedFar) {
-                            const regionName = geoData.address.municipality || geoData.address.town || geoData.address.city || "Regional Sector";
+                            const regionName = (geoData.address && (geoData.address.municipality || geoData.address.town || geoData.address.city)) || "Regional Sector";
                             rawPoints.push({ lat: pt.lat, lon: pt.lon, name: regionName });
                         }
                     }
