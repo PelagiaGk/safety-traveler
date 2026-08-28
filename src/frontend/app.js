@@ -309,14 +309,12 @@ async function scanVisibleArea() {
             if (cityData.elements && cityData.elements.length > 0) {
                 cityData.elements.forEach(city => {
                     const placeName = city.tags['name:en'] || city.tags.name || "Regional Sector";
-                    const placeType = city.tags.place || "unknown"; 
                     
                     if (!waterTerms.some(term => placeName.toLowerCase().includes(term))) {
                         rawPoints.push({
                             lat: parseFloat(city.lat),
                             lon: parseFloat(city.lon),
-                            name: placeName,
-                            placeType: placeType 
+                            name: placeName
                         });
                     }
                 });
@@ -364,9 +362,8 @@ async function scanVisibleArea() {
                     }
                     
                     const regionName = geoData.address.municipality || geoData.address.town || geoData.address.village || geoData.address.county || geoData.address.city || "Regional Sector";
-                    const placeType = geoData.type || "unknown";
                     
-                    rawPoints.push({ lat: plotLat, lon: plotLon, name: regionName, placeType: placeType });
+                    rawPoints.push({ lat: plotLat, lon: plotLon, name: regionName });
                 }
                 await new Promise(resolve => setTimeout(resolve, 300));
             } catch (err) {
@@ -383,23 +380,11 @@ async function scanVisibleArea() {
             if (res.ok) {
                 const data = await res.json();
                 
-                if (data.predictions && data.predictions.length > 0) {
-                    let validThreat = null;
-                    
-                    for (const pred of data.predictions) {
-                        if (parseInt(pred.probability_percentage) < 30) continue; 
-                        
-                        const isUrbanWildfire = pred.disaster_type.toLowerCase().includes('fire') && pt.placeType === 'city';
-                        
-                        if (!isUrbanWildfire) {
-                            validThreat = pred;
-                            break; 
-                        }
-                    }
-
-                    if (validThreat) {
-                        predictionsList.push({ ...pt, threat: validThreat });
-                    }
+                if (data.predictions && data.predictions.length > 0 && parseInt(data.predictions[0].probability_percentage) >= 30) {
+                    predictionsList.push({
+                        ...pt,
+                        threat: data.predictions[0]
+                    });
                 }
             }
         } catch (err) {
