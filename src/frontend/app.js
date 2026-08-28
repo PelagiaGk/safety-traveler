@@ -321,34 +321,44 @@ async function scanVisibleArea() {
 
     if (rawPoints.length === 0) {
         const center = bounds.getCenter();
-        try {
-            const geoRes = await fetch(`/api/v1/nominatim-proxy?lat=${center.lat}&lon=${center.lng}&zoom=10`);
-            if (geoRes.ok) {
-                const geoData = await geoRes.json();
-                
-                const dispName = (geoData.display_name || "").toLowerCase();
-                const isWaterText = waterTerms.some(term => dispName.includes(term));
-                
-                let isWaterMetadata = false;
-                if (geoData.lat && geoData.lon) {
-                    const snapDist = Math.hypot(center.lat - parseFloat(geoData.lat), center.lng - parseFloat(geoData.lon));
-                    if (snapDist > 0.02 || isWaterText) isWaterMetadata = true;
+        const lonOffset = (bounds.getEast() - bounds.getWest()) * 0.25; 
+        
+        const fallbackPoints = [
+            { lat: center.lat, lon: center.lng }, 
+            { lat: center.lat, lon: center.lng - lonOffset }, 
+            { lat: center.lat, lon: center.lng + lonOffset }  
+        ];
+
+        for (const pt of fallbackPoints) {
+            try {
+                const geoRes = await fetch(`/api/v1/nominatim-proxy?lat=${pt.lat}&lon=${pt.lon}&zoom=10`);
+                if (geoRes.ok) {
+                    const geoData = await geoRes.json();
+                    
+                    const dispName = (geoData.display_name || "").toLowerCase();
+                    const isWaterText = waterTerms.some(term => dispName.includes(term));
+                    
+                    let isWaterMetadata = false;
+                    if (geoData.lat && geoData.lon) {
+                        const snapDist = Math.hypot(pt.lat - parseFloat(geoData.lat), pt.lon - parseFloat(geoData.lon));
+                        if (snapDist > 0.02 || isWaterText) isWaterMetadata = true;
+                    }
+                    
+                    if (!isWaterMetadata) {
+                        isWaterMetadata = (geoData.class === 'natural' && geoData.type === 'water') || 
+                                          geoData.class === 'waterway' || geoData.type === 'sea' || 
+                                          (geoData.address && (geoData.address.sea || geoData.address.ocean || geoData.address.water));
+                    }
+                    
+                    if (!isWaterMetadata && geoData.address) {
+                        const addr = geoData.address;
+                        const regionName = addr.municipality || addr.town || addr.village || addr.county || addr.city || "Regional Sector";
+                        rawPoints.push({ lat: pt.lat, lon: pt.lon, name: regionName });
+                    }
                 }
-                
-                if (!isWaterMetadata) {
-                    isWaterMetadata = (geoData.class === 'natural' && geoData.type === 'water') || 
-                                      geoData.class === 'waterway' || geoData.type === 'sea' || 
-                                      (geoData.address && (geoData.address.sea || geoData.address.ocean || geoData.address.water));
-                }
-                
-                if (!isWaterMetadata && geoData.address) {
-                    const addr = geoData.address;
-                    const regionName = addr.municipality || addr.town || addr.village || addr.county || addr.city || "Regional Sector";
-                    rawPoints.push({ lat: center.lat, lon: center.lng, name: regionName });
-                }
+            } catch (err) {
+                console.warn("Fallback point failed.");
             }
-        } catch (err) {
-            console.warn("Fallback geocode failed.");
         }
     }
 
