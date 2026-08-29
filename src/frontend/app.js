@@ -56,9 +56,7 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             const season = document.getElementById('season-filter')?.value || (typeof getCurrentSeason === 'function' ? getCurrentSeason() : 'Summer');
             
-            let clickName = "Regional Sector"; 
-            let isProvenWater = false;
-            
+            let clickName = null; 
             const currentZoom = map.getZoom();
             let nomZoom = currentZoom < 5 ? 3 : (currentZoom < 7 ? 5 : 8);
             
@@ -72,18 +70,19 @@ document.addEventListener("DOMContentLoaded", () => {
                                             geoData.class === 'waterway' || geoData.type === 'sea' || 
                                             (geoData.address && (geoData.address.sea || geoData.address.ocean));
                         
-                        if (isWaterMeta) {
-                            isProvenWater = true;
-                        } else if (geoData.address) {
-                            clickName = geoData.address.municipality || geoData.address.town || geoData.address.village || geoData.address.county || geoData.address.city || "Regional Sector";
+                        const dispName = (geoData.display_name || "").toLowerCase();
+                        const isWaterText = ["sea", "ocean", "gulf", "marine", "bay", "strait"].some(t => dispName.includes(t));
+
+                        if (!isWaterMeta && !isWaterText) {
+                            clickName = (geoData.address && (geoData.address.municipality || geoData.address.town || geoData.address.city || geoData.address.county)) || "Regional Sector";
                         }
                     }
                 }
             } catch (err) {
-                console.warn("Geocode rate-limited. Proceeding to ML analysis anyway.");
+                console.warn("Geocode rate-limited. Aborting to protect accuracy.");
             }
 
-            if (isProvenWater) {
+            if (!clickName) {
                 popup.setContent('<div class="glass-popup empty-state"><h3>Data says nothing to worry about! 🌿</h3></div>');
                 return;
             }
@@ -297,7 +296,7 @@ async function scanVisibleArea() {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 8000); 
 
-        let nodeLimit = currentZoom < 6 ? 6 : (currentZoom >= 10 ? 15 : 10);
+        let nodeLimit = currentZoom < 6 ? 5 : (currentZoom >= 10 ? 12 : 8);
         let placeFilter = currentZoom < 6 ? "country|state|city" : "city|town|municipality";
 
         const query = `[out:json][timeout:5];node["place"~"${placeFilter}"](${s},${w},${n},${e});out ${nodeLimit};`;
@@ -315,7 +314,7 @@ async function scanVisibleArea() {
             }
         }
     } catch (err) {
-        console.warn("Overpass API unavailable. Triggering fail-open fallback.");
+        console.warn("Overpass API unavailable. Triggering rate-limited fallback.");
     }
 
     if (rawPoints.length === 0) {
@@ -332,7 +331,7 @@ async function scanVisibleArea() {
         ];
 
         for (const pt of fallbackPoints) {
-            let isProvenWater = false;
+            let isValidLand = false;
             let regionName = "Regional Sector"; 
 
             try {
@@ -345,19 +344,23 @@ async function scanVisibleArea() {
                                             geoData.class === 'waterway' || geoData.type === 'sea' || 
                                             (geoData.address && (geoData.address.sea || geoData.address.ocean));
                         
-                        if (isWaterMeta) {
-                            isProvenWater = true;
-                        } else if (geoData.address) {
-                            regionName = geoData.address.municipality || geoData.address.town || geoData.address.city || "Regional Sector";
+                        const dispName = (geoData.display_name || "").toLowerCase();
+                        const isWaterText = ["sea", "ocean", "gulf", "marine", "bay", "strait"].some(t => dispName.includes(t));
+
+                        if (!isWaterMeta && !isWaterText) {
+                            isValidLand = true; 
+                            if (geoData.address) {
+                                regionName = geoData.address.municipality || geoData.address.town || geoData.address.city || "Regional Sector";
+                            }
                         }
                     }
                 }
-                await new Promise(resolve => setTimeout(resolve, 1500)); 
+                await new Promise(resolve => setTimeout(resolve, 1100)); 
             } catch (err) {
-                console.warn("Fallback point rate-limited. Proceeding anyway.");
+                console.warn("Fallback point skipped due to network timeout.");
             }
 
-            if (!isProvenWater) {
+            if (isValidLand) {
                 rawPoints.push({ lat: pt.lat, lon: pt.lon, name: regionName });
             }
         }
@@ -379,38 +382,40 @@ async function scanVisibleArea() {
                 }
             }
         } catch (err) {
-            console.warn(`ML API failed for: ${pt.lat}, ${pt.lon}`);
+            console.warn(`ML API failed for: ${pt.name}`);
         }
     }
 
     predictionsList.sort((a, b) => parseInt(b.threat.probability_percentage) - parseInt(a.threat.probability_percentage));
 
-    let dedupeDistance = 0.2; 
-    if (currentZoom < 6) dedupeDistance = 0.8; 
-    else if (currentZoom < 8) dedupeDistance = 0.5; 
-    else if (currentZoom >= 10) dedupeDistance = 0.08; 
-
     for (const pt of predictionsList) {
-        let isDuplicate = false;
-        let nudgeOffset = 0; 
-
-        for (const cachedPt of plottedMarkersCache) {
-            const distance = Math.hypot(pt.lat - cachedPt.lat, pt.lon - cachedPt.lon);
-            
-            if (distance < dedupeDistance && cachedPt.type === pt.threat.disaster_type) {
-                isDuplicate = true;
-                break;
-            }
-            
-            if (distance < 0.05) {
-                nudgeOffset += 0.03; 
-            }
-        }
-
+        const uniqueKey = `${pt.name}-${pt.threat.disaster_type}`;
+        
+        let isDuplicate = plottedMarkersCache.some(cachedPt => cachedPt.uniqueKey === uniqueKey);
+        
         if (!isDuplicate) {
-            let finalLat = pt.lat + nudgeOffset;
-            plottedMarkersCache.push({ lat: finalLat, lon: pt.lon, type: pt.threat.disaster_type, name: pt.name });
-            plotDynamicMarker(finalLat, pt.lon, pt.threat, pt.name);
+            let finalLat = pt.lat;
+            let finalLon = pt.lon;
+
+            if (pt.threat.disaster_type.toLowerCase().includes('fire')) {
+                finalLat += 0.035; 
+                finalLon -= 0.020;
+            }
+
+            const spatialOverlap = plottedMarkersCache.some(c => Math.hypot(finalLat - c.lat, finalLon - c.lon) < 0.04);
+            if (spatialOverlap) {
+                finalLon += 0.04;
+            }
+
+            plottedMarkersCache.push({ 
+                lat: finalLat, 
+                lon: finalLon, 
+                type: pt.threat.disaster_type, 
+                name: pt.name,
+                uniqueKey: uniqueKey 
+            });
+            
+            plotDynamicMarker(finalLat, finalLon, pt.threat, pt.name);
         }
     }
 }
