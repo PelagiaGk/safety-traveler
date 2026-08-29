@@ -79,11 +79,11 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
                 }
             } catch (err) {
-                console.warn("Geocode rate-limited. Aborting to protect accuracy.");
+                console.warn("Geocode strictly failed.");
             }
 
             if (!clickName) {
-                popup.setContent('<div class="glass-popup empty-state"><h3>Data says nothing to worry about! 🌿</h3></div>');
+                popup.setContent('<div class="glass-popup empty-state"><h3>⚠️ Location invalid or network busy. Please try again.</h3></div>');
                 return;
             }
 
@@ -103,7 +103,7 @@ document.addEventListener("DOMContentLoaded", () => {
             popup.setContent('<div class="glass-popup empty-state"><h3>Data says nothing to worry about! 🌿</h3></div>');
             
         } catch (err) {
-            popup.setContent('<div class="glass-popup empty-state"><h3>Data says nothing to worry about! 🌿</h3></div>');
+            popup.setContent('<div class="glass-popup empty-state"><h3>⚠️ Location invalid or network busy. Please try again.</h3></div>');
         }
     });
 
@@ -280,7 +280,15 @@ async function updateRegionMeta(lat, lon) {
     }
 }
 
+window.currentScanController = null;
+
 async function scanVisibleArea() {
+    if (window.currentScanController) {
+        window.currentScanController.abort(); 
+    }
+    window.currentScanController = new AbortController();
+    const signal = window.currentScanController.signal;
+
     const bounds = map.getBounds();
     const season = document.getElementById('season-filter')?.value || (typeof getCurrentSeason === 'function' ? getCurrentSeason() : 'Summer');
     const currentZoom = map.getZoom();
@@ -293,16 +301,11 @@ async function scanVisibleArea() {
     let rawPoints = [];
 
     try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000); 
-
         let nodeLimit = currentZoom < 6 ? 5 : (currentZoom >= 10 ? 12 : 8);
         let placeFilter = currentZoom < 6 ? "country|state|city" : "city|town|municipality";
-
         const query = `[out:json][timeout:5];node["place"~"${placeFilter}"](${s},${w},${n},${e});out ${nodeLimit};`;
-        const overpassRes = await fetch(`/api/v1/overpass-proxy?data=${encodeURIComponent(query)}`, { signal: controller.signal });
-        
-        clearTimeout(timeoutId);
+
+        const overpassRes = await fetch(`/api/v1/overpass-proxy?data=${encodeURIComponent(query)}`, { signal });
 
         if (overpassRes.ok) {
             const cityData = await overpassRes.json();
@@ -314,36 +317,38 @@ async function scanVisibleArea() {
             }
         }
     } catch (err) {
-        console.warn("Overpass API unavailable. Triggering rate-limited fallback.");
+        if (err.name === 'AbortError') return; 
+        console.warn("Overpass API unavailable. Triggering strict fallback.");
     }
 
     if (rawPoints.length === 0) {
         const center = bounds.getCenter();
         const latOff = (bounds.getNorth() - bounds.getSouth()) * 0.25;
         const lonOff = (bounds.getEast() - bounds.getWest()) * 0.25;
-        
+
         const fallbackPoints = [
             { lat: center.lat, lon: center.lng },
-            { lat: center.lat + latOff, lon: center.lng - lonOff }, 
-            { lat: center.lat + latOff, lon: center.lng + lonOff }, 
-            { lat: center.lat - latOff, lon: center.lng - lonOff }, 
-            { lat: center.lat - latOff, lon: center.lng + lonOff }  
+            { lat: center.lat + latOff, lon: center.lng - lonOff },
+            { lat: center.lat + latOff, lon: center.lng + lonOff },
+            { lat: center.lat - latOff, lon: center.lng - lonOff },
+            { lat: center.lat - latOff, lon: center.lng + lonOff }
         ];
 
         for (const pt of fallbackPoints) {
+            if (signal.aborted) return;
             let isValidLand = false;
-            let regionName = "Regional Sector"; 
+            let regionName = "Regional Sector";
 
             try {
-                const geoRes = await fetch(`/api/v1/nominatim-proxy?lat=${pt.lat}&lon=${pt.lon}&zoom=10`);
+                const geoRes = await fetch(`/api/v1/nominatim-proxy?lat=${pt.lat}&lon=${pt.lon}&zoom=10`, { signal });
                 if (geoRes.ok) {
                     const geoData = await geoRes.json();
-                    
+
                     if (!geoData.error) {
-                        const isWaterMeta = (geoData.class === 'natural' && geoData.type === 'water') || 
-                                            geoData.class === 'waterway' || geoData.type === 'sea' || 
+                        const isWaterMeta = (geoData.class === 'natural' && geoData.type === 'water') ||
+                                            geoData.class === 'waterway' || geoData.type === 'sea' ||
                                             (geoData.address && (geoData.address.sea || geoData.address.ocean));
-                        
+
                         const dispName = (geoData.display_name || "").toLowerCase();
                         const isWaterText = ["sea", "ocean", "gulf", "marine", "bay", "strait"].some(t => dispName.includes(t));
 
@@ -355,22 +360,29 @@ async function scanVisibleArea() {
                         }
                     }
                 }
-                await new Promise(resolve => setTimeout(resolve, 1100)); 
             } catch (err) {
-                console.warn("Fallback point skipped due to network timeout.");
+                if (err.name === 'AbortError') return;
             }
 
             if (isValidLand) {
                 rawPoints.push({ lat: pt.lat, lon: pt.lon, name: regionName });
             }
+
+            await new Promise(resolve => {
+                const timer = setTimeout(resolve, 1100);
+                signal.addEventListener('abort', () => { clearTimeout(timer); resolve(); });
+            });
         }
     }
 
+    if (signal.aborted) return;
+
     let predictionsList = [];
     for (const pt of rawPoints) {
+        if (signal.aborted) return;
         try {
             const url = `/api/v1/predict?lat=${pt.lat}&lon=${pt.lon}&region=${encodeURIComponent(pt.name)}&season=${season}`;
-            const res = await fetch(url);
+            const res = await fetch(url, { signal });
             if (res.ok) {
                 const data = await res.json();
                 if (data.predictions && data.predictions.length > 0) {
@@ -382,23 +394,25 @@ async function scanVisibleArea() {
                 }
             }
         } catch (err) {
-            console.warn(`ML API failed for: ${pt.name}`);
+            if (err.name === 'AbortError') return;
         }
     }
 
+    if (signal.aborted) return;
     predictionsList.sort((a, b) => parseInt(b.threat.probability_percentage) - parseInt(a.threat.probability_percentage));
 
     for (const pt of predictionsList) {
-        const uniqueKey = `${pt.name}-${pt.threat.disaster_type}`;
-        
+        const keyBase = pt.name && pt.name !== "Regional Sector" ? pt.name : `${pt.lat.toFixed(1)}_${pt.lon.toFixed(1)}`;
+        const uniqueKey = `${keyBase}-${pt.threat.disaster_type}`;
+
         let isDuplicate = plottedMarkersCache.some(cachedPt => cachedPt.uniqueKey === uniqueKey);
-        
+
         if (!isDuplicate) {
             let finalLat = pt.lat;
             let finalLon = pt.lon;
 
             if (pt.threat.disaster_type.toLowerCase().includes('fire')) {
-                finalLat += 0.035; 
+                finalLat += 0.035;
                 finalLon -= 0.020;
             }
 
@@ -407,14 +421,14 @@ async function scanVisibleArea() {
                 finalLon += 0.04;
             }
 
-            plottedMarkersCache.push({ 
-                lat: finalLat, 
-                lon: finalLon, 
-                type: pt.threat.disaster_type, 
+            plottedMarkersCache.push({
+                lat: finalLat,
+                lon: finalLon,
+                type: pt.threat.disaster_type,
                 name: pt.name,
-                uniqueKey: uniqueKey 
+                uniqueKey: uniqueKey
             });
-            
+
             plotDynamicMarker(finalLat, finalLon, pt.threat, pt.name);
         }
     }
