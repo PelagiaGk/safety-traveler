@@ -1,13 +1,11 @@
 let map;
 let markersClusterGroup;
 let isMarkerClick = false;
-let overpassCircuitTripped = false;
-let mapIdleTimer;
 let currentRegionName = "Regional View";
-let currentActivePopup = null;
 let plottedMarkersCache = [];
-const MIN_DISTANCE_THRESHOLD = 0.25;
 window.isMapScanning = false;
+window.currentScanController = null;
+
 const WILDLAND_SEARCH_RADIUS_M = 8000;
 const WATER_SEARCH_RADIUS_M = 8000;
 const WILDFIRE_JITTER_DEG = 0.035;
@@ -39,12 +37,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     markersClusterGroup = L.featureGroup().addTo(map);
     const seasonFilter = document.getElementById('season-filter');
+    
     if (seasonFilter) {
         seasonFilter.addEventListener('change', () => {
             markersClusterGroup.clearLayers();
-            
             plottedMarkersCache = [];
-            
             scanVisibleArea();
         });
     }
@@ -69,7 +66,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 
                 if (geoRes.ok) {
                     const geoData = await geoRes.json();
-
                     if (!geoData.error && !isWaterFromGeoData(geoData)) {
                         clickName = (geoData.address && (geoData.address.municipality || geoData.address.town || geoData.address.city || geoData.address.county)) || "Regional Sector";
                     }
@@ -92,11 +88,13 @@ document.addEventListener("DOMContentLoaded", () => {
                     const validThreats = data.predictions.filter(p => parseInt(p.probability_percentage) >= 30);
                     
                     if (validThreats.length > 0) {
-                        let combinedHTML = "";
+                        let combinedHTML = `<div class="multi-threat-scroll" style="max-height: 280px; overflow-y: auto; padding-right: 5px;">`;
                         validThreats.forEach(threat => {
                             threat.locality = clickName;
                             combinedHTML += buildPopupCard(threat, e.latlng.lat, e.latlng.lng);
                         });
+                        combinedHTML += `</div>`;
+                        
                         popup.setContent(combinedHTML);
                         return;
                     }
@@ -118,11 +116,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (!query) return;
 
                 try {
-                    const params = new URLSearchParams({
-                        q: query,
-                        format: 'json',
-                        limit: 1
-                    });
+                    const params = new URLSearchParams({ q: query, format: 'json', limit: 1 });
                     const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`);
                     const data = await response.json();
 
@@ -194,7 +188,6 @@ function getCompassDirection(lat, lon, geoData) {
     const lonDeadzone = lonSpan / 5;
 
     let v = "", h = "";
-
     if (targetLat > boxCenterLat + latDeadzone) v = "North";
     else if (targetLat < boxCenterLat - latDeadzone) v = "South";
 
@@ -322,7 +315,6 @@ async function computePlacement(lat, lon, disasterType, signal) {
 
 function buildPopupCard(data, lat, lon) {
     const season = document.getElementById('season-filter')?.value || getCurrentSeason();
-
     let reasonText = data.primary_reason || `Live ML forecast indicates a ${data.probability_percentage} probability for ${data.disaster_type} in the surrounding area.`;
 
     if (data.years_of_data) {
@@ -334,7 +326,7 @@ function buildPopupCard(data, lat, lon) {
         : `<li>Monitor local meteorological bulletins and regional safety warnings.</li>`;
 
     return `
-        <div class="glass-popup">
+        <div class="glass-popup" style="margin-bottom: 10px;">
             <h2>${data.locality || 'User Selected Area'}</h2>
             <p class="season-tag">Season: <strong>${season}</strong></p>
             <div class="advisory-section">
@@ -399,8 +391,6 @@ async function updateRegionMeta(lat, lon) {
         regionTextEl.innerText = currentRegionName;
     }
 }
-
-window.currentScanController = null;
 
 async function scanVisibleArea() {
     if (window.currentScanController) {
