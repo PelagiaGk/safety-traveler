@@ -4,7 +4,7 @@ import math
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
-from fastapi import FastAPI, Query, Depends
+from fastapi import FastAPI, Query, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import httpx
@@ -13,17 +13,15 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
-FRONTEND_DIR = BASE_DIR / "src" / "frontend"
-
 from src.api.dependencies import get_disaster_data, get_predictor
 from src.models.inference import DisasterPredictor
 from src.data.schemas import SeasonEnum
 
-app = FastAPI(title="Safety Traveler API", page_icon="🌍")
+app = FastAPI(title="Safety Traveler API", page_icon= "🌍")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -38,7 +36,6 @@ def get_current_season() -> str:
     return SeasonEnum.WINTER.value
 
 def get_nearest_region(lat: float, lon: float, features: List[Dict]) -> Optional[Dict]:
-    """Finds the closest regional data point using Euclidean distance."""
     min_dist = float('inf')
     nearest_props = None
     
@@ -47,7 +44,6 @@ def get_nearest_region(lat: float, lon: float, features: List[Dict]) -> Optional
         if geom.get("type") == "Point":
             coords = geom.get("coordinates", [0, 0])
             f_lon, f_lat = coords[0], coords[1]
-            
             dist = math.hypot(f_lat - lat, f_lon - lon)
             if dist < min_dist:
                 min_dist = dist
@@ -60,7 +56,6 @@ async def nominatim_proxy(lat: float, lon: float, zoom: int = 10, accept_languag
     """Proxies Nominatim requests with strict OSM-compliant headers."""
     url = "https://nominatim.openstreetmap.org/reverse"
     params = {"format": "json", "lat": lat, "lon": lon, "zoom": zoom, "accept-language": accept_language}
-    
     headers = {"User-Agent": "PublicSafetyDashboard/1.0 (open-source-dev@example.com)"}
     
     async with httpx.AsyncClient(timeout=10.0) as client:
@@ -80,11 +75,7 @@ async def overpass_proxy(data: str):
         "https://overpass.osm.ch/api/interpreter",            
         "https://overpass-api.de/api/interpreter"            
     ]
-    
-    headers = {
-        "User-Agent": "PublicSafetyDashboard/1.0 (open-source-dev@example.com)",
-        "Accept": "*/*"
-    }
+    headers = {"User-Agent": "PublicSafetyDashboard/1.0", "Accept": "*/*"}
     
     async with httpx.AsyncClient(timeout=4.0) as client:
         for url in endpoints:
@@ -94,7 +85,6 @@ async def overpass_proxy(data: str):
                     return response.json()
             except Exception:
                 continue
-                
     return {"elements": []}
          
 @app.get("/api/v1/hierarchy")
@@ -137,15 +127,10 @@ def predict_risk(
 
     if target_region:
         tr_lower = target_region.lower()
-        if any(term in tr_lower for term in ["sea", "ocean", "marine", "gulf", "bay", "strait"]):
+        if any(term in tr_lower for term in ["sea", "ocean", "marine", "gulf", "bay", "strait", "water"]):
             return {"predictions": []}
 
-    return predictor.predict(
-        region=target_region,
-        season=active_season,
-        lat=lat,
-        lon=lon
-    )
+    return predictor.predict(region=target_region, season=active_season, lat=lat, lon=lon)
 
 @app.get("/api/v1/default-view", tags=["Default View"])
 def get_default_view(
@@ -153,10 +138,8 @@ def get_default_view(
     lon: Optional[float] = Query(None, description="User longitude"),
     data: Dict[str, Any] = Depends(get_disaster_data)
 ):
-    """Generates a localized map centered on the user's country with active seasonal alerts."""
     current_season = get_current_season()
     features = data.get("features", [])
-    
     center_lat, center_lon = 39.0, 22.0
     matched_country = "Greece"
     zoom_level = 6  
@@ -177,13 +160,9 @@ def get_default_view(
         "current_season": current_season,
         "default_center": {"lat": center_lat, "lon": center_lon, "zoom": zoom_level},
         "matched_country": matched_country,
-        "active_seasonal_features": {
-            "type": "FeatureCollection",
-            "features": active_features
-        }
+        "active_seasonal_features": {"type": "FeatureCollection", "features": active_features}
     }
 
+FRONTEND_DIR = BASE_DIR / "src" / "frontend"
 if FRONTEND_DIR.exists():
     app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
-else:
-    print(f"Warning: Frontend directory {FRONTEND_DIR} not found. The API will run, but the UI will not load.")

@@ -6,10 +6,6 @@ let plottedMarkersCache = [];
 window.isMapScanning = false;
 window.currentScanController = null;
 
-const WILDLAND_SEARCH_RADIUS_M = 8000;
-const WILDFIRE_JITTER_DEG = 0.02;
-const areaNameCache = new Map();
-
 document.addEventListener("DOMContentLoaded", () => {
     if (map !== undefined && map !== null) {
         map.remove();
@@ -51,33 +47,27 @@ document.addEventListener("DOMContentLoaded", () => {
             .openOn(map);
 
         try {
-            const season = document.getElementById('season-filter')?.value || (typeof getCurrentSeason === 'function' ? getCurrentSeason() : 'Summer');
+            const season = document.getElementById('season-filter')?.value || getCurrentSeason();
             let clickName = "Regional Sector"; 
-            let isProvenWater = false;
             let nomZoom = map.getZoom() < 5 ? 3 : (map.getZoom() < 7 ? 5 : 10);
             
-            try {
-                const geoRes = await fetch(`/api/v1/nominatim-proxy?lat=${e.latlng.lat}&lon=${e.latlng.lng}&zoom=${nomZoom}&accept-language=en`);
-                if (geoRes.ok) {
-                    const geoData = await geoRes.json();
-                    if (!geoData.error) {
-                        if (isWaterFromGeoData(geoData)) {
-                            isProvenWater = true;
-                        } else if (geoData.address) {
-                            clickName = geoData.address.municipality || geoData.address.town || geoData.address.city || geoData.address.county || "Regional Sector";
-                        }
-                    }
+            const geoRes = await fetch(`/api/v1/nominatim-proxy?lat=${e.latlng.lat}&lon=${e.latlng.lng}&zoom=${nomZoom}&accept-language=en`);
+            
+            if (geoRes.ok) {
+                const geoData = await geoRes.json();
+                
+                if (isWaterFromGeoData(geoData)) {
+                    popup.setContent('<div class="glass-popup empty-state"><h3>Data says nothing to worry about! 🌿</h3></div>');
+                    return;
                 }
-            } catch (err) {
-                console.warn("Geocode rate-limited. Proceeding with default land assumption.");
-            }
-
-            if (isProvenWater) {
-                popup.setContent('<div class="glass-popup empty-state"><h3>Data says nothing to worry about! 🌿</h3></div>');
-                return;
+                
+                if (!geoData.error && geoData.address) {
+                    clickName = geoData.address.municipality || geoData.address.town || geoData.address.city || geoData.address.county || "Regional Sector";
+                }
             }
 
             const res = await fetch(`/api/v1/predict?lat=${e.latlng.lat}&lon=${e.latlng.lng}&region=${encodeURIComponent(clickName)}&season=${season}`);
+            
             if (res.ok) {
                 const data = await res.json();
                 if (data.predictions && data.predictions.length > 0) {
@@ -108,12 +98,12 @@ document.addEventListener("DOMContentLoaded", () => {
             const center = map.getBounds().getCenter();
             if (typeof updateRegionMeta === 'function') updateRegionMeta(center.lat, center.lng);
             scanVisibleArea();
-        }, 1500); 
+        }, 1200); 
     });
     
     map.on('zoomend', () => {
         clearTimeout(scanTimeout);
-        scanTimeout = setTimeout(scanVisibleArea, 1500); 
+        scanTimeout = setTimeout(scanVisibleArea, 1200); 
     });
 
     scanVisibleArea();
@@ -160,15 +150,17 @@ function getCompassDirection(lat, lon, geoData) {
 
 function isWaterFromGeoData(geoData) {
     if (!geoData || geoData.error) return false;
-    const type = geoData.addresstype || geoData.type || "";
-    if (['city', 'town', 'village', 'municipality'].includes(type.toLowerCase())) return false;
+    
+    const type = (geoData.addresstype || geoData.type || "").toLowerCase();
+    if (['city', 'town', 'village', 'municipality', 'county', 'state'].includes(type)) return false;
 
     const isWaterMeta = (geoData.class === 'natural' && geoData.type === 'water') ||
         geoData.class === 'waterway' || geoData.type === 'sea' ||
         (geoData.address && (geoData.address.sea || geoData.address.ocean));
 
     const dispName = (geoData.display_name || "").toLowerCase();
-    const waterRegex = /\b(sea|ocean|gulf|marine|bay|strait)\b/;
+    const waterRegex = /\b(sea|ocean|gulf|marine|bay|strait|lake)\b/i;
+    
     return isWaterMeta || waterRegex.test(dispName);
 }
 
@@ -241,58 +233,37 @@ async function scanVisibleArea() {
     const globalSignal = window.currentScanController.signal;
 
     const bounds = map.getBounds();
-    const season = document.getElementById('season-filter')?.value || (typeof getCurrentSeason === 'function' ? getCurrentSeason() : 'Summer');
+    const season = document.getElementById('season-filter')?.value || getCurrentSeason();
+    const currentZoom = map.getZoom();
     
-    const latStep = (bounds.getNorth() - bounds.getSouth()) / 3;
-    const lonStep = (bounds.getEast() - bounds.getWest()) / 3;
-    const s = bounds.getSouth();
-    const w = bounds.getWest();
-
-    let fallbackPoints = [];
-    for (let i = 1; i <= 2; i++) {
-        for (let j = 1; j <= 2; j++) {
-            fallbackPoints.push({ lat: s + (latStep * i), lon: w + (lonStep * j) });
-        }
-    }
-    fallbackPoints.push({ lat: bounds.getCenter().lat, lon: bounds.getCenter().lng });
+    const s = bounds.getSouth().toFixed(4);
+    const w = bounds.getWest().toFixed(4);
+    const n = bounds.getNorth().toFixed(4);
+    const e = bounds.getEast().toFixed(4);
 
     let rawPoints = [];
-    for (const pt of fallbackPoints) {
-        if (globalSignal.aborted) return;
-        let isValidLand = true; 
-        let regionName = "Regional Sector"; 
 
-        try {
-            const geoRes = await fetch(`/api/v1/nominatim-proxy?lat=${pt.lat}&lon=${pt.lon}&zoom=10&accept-language=en`, { signal: globalSignal });
-            if (geoRes.ok) {
-                const geoData = await geoRes.json();
-                if (!geoData.error) {
-                    if (isWaterFromGeoData(geoData)) {
-                        isValidLand = false; 
-                    } else if (geoData.address) {
-                        regionName = geoData.address.municipality || geoData.address.town || geoData.address.city || "Regional Sector";
-                    }
-                }
+    try {
+        let nodeLimit = currentZoom < 6 ? 6 : (currentZoom >= 10 ? 15 : 10);
+        let placeFilter = currentZoom < 6 ? "country|state|city" : "city|town|municipality";
+        const query = `[out:json][timeout:5];node["place"~"${placeFilter}"](${s},${w},${n},${e});out ${nodeLimit};`;
+
+        const overpassRes = await fetch(`/api/v1/overpass-proxy?data=${encodeURIComponent(query)}`, { signal: globalSignal });
+        if (overpassRes.ok) {
+            const cityData = await overpassRes.json();
+            if (cityData.elements) {
+                cityData.elements.forEach(city => {
+                    const placeName = city.tags['name:en'] || city.tags.name || "Regional Sector";
+                    rawPoints.push({ lat: parseFloat(city.lat), lon: parseFloat(city.lon), name: placeName });
+                });
             }
-        } catch (err) {
-            if (err.name === 'AbortError') return;
         }
-
-        if (isValidLand) {
-            rawPoints.push({ lat: pt.lat, lon: pt.lon, name: regionName });
-        }
-
-        await new Promise(resolve => {
-            const timer = setTimeout(resolve, 800);
-            globalSignal.addEventListener('abort', () => { clearTimeout(timer); resolve(); });
-        });
+    } catch (err) {
+        console.warn("Overpass unavailble. Falling back.");
     }
 
-    if (globalSignal.aborted) return;
-
     let predictionsList = [];
-    for (const pt of rawPoints) {
-        if (globalSignal.aborted) return;
+    const mlPromises = rawPoints.map(async (pt) => {
         try {
             const url = `/api/v1/predict?lat=${pt.lat}&lon=${pt.lon}&region=${encodeURIComponent(pt.name)}&season=${season}`;
             const res = await fetch(url, { signal: globalSignal });
@@ -307,14 +278,15 @@ async function scanVisibleArea() {
                 }
             }
         } catch (err) {
-            if (err.name === 'AbortError') return;
         }
-    }
+    });
 
+    await Promise.all(mlPromises);
     if (globalSignal.aborted) return;
+
     predictionsList.sort((a, b) => parseFloat(b.threat.probability_percentage) - parseFloat(a.threat.probability_percentage));
 
-    const dedupeDistance = map.getZoom() < 7 ? 0.3 : (map.getZoom() < 10 ? 0.15 : 0.05); 
+    const dedupeDistance = currentZoom < 7 ? 0.6 : (currentZoom < 10 ? 0.3 : 0.1); 
 
     for (const pt of predictionsList) {
         const uniqueKey = `${pt.name}-${pt.threat.disaster_type}`;
@@ -325,17 +297,15 @@ async function scanVisibleArea() {
             let finalLon = pt.lon;
 
             if (pt.threat.disaster_type.toLowerCase().includes('fire')) {
-                const hash = (Math.abs(pt.lat) * 100 + Math.abs(pt.lon) * 100) % 4;
-                if (hash < 1) { finalLat += WILDFIRE_JITTER_DEG; finalLon += WILDFIRE_JITTER_DEG; }
-                else if (hash < 2) { finalLat += WILDFIRE_JITTER_DEG; finalLon -= WILDFIRE_JITTER_DEG; }
-                else if (hash < 3) { finalLat -= WILDFIRE_JITTER_DEG; finalLon += WILDFIRE_JITTER_DEG; }
-                else { finalLat -= WILDFIRE_JITTER_DEG; finalLon -= WILDFIRE_JITTER_DEG; }
+                finalLat += 0.005;
+                finalLon -= 0.005;
             }
 
-            const spatialOverlap = plottedMarkersCache.some(c => Math.hypot(finalLat - c.lat, finalLon - c.lon) < dedupeDistance);
-            if (spatialOverlap) {
-                finalLon += 0.03;
-            }
+            const spatialOverlap = plottedMarkersCache.some(c => Math.hypot(finalLat - c.lat, finalLon - c.lon) < dedupeDistance && c.type === pt.threat.disaster_type);
+            if (spatialOverlap) continue;
+
+            const visualOverlap = plottedMarkersCache.some(c => Math.hypot(finalLat - c.lat, finalLon - c.lon) < 0.03);
+            if (visualOverlap) finalLon += 0.04;
 
             plottedMarkersCache.push({ lat: finalLat, lon: finalLon, type: pt.threat.disaster_type, name: pt.name, uniqueKey: uniqueKey });
             plotDynamicMarker(finalLat, finalLon, pt.threat, pt.name);
