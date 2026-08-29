@@ -7,8 +7,7 @@ window.isMapScanning = false;
 window.currentScanController = null;
 
 const WILDLAND_SEARCH_RADIUS_M = 8000;
-const WATER_SEARCH_RADIUS_M = 8000;
-const WILDFIRE_JITTER_DEG = 0.035;
+const WILDFIRE_JITTER_DEG = 0.02;
 const areaNameCache = new Map();
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -16,10 +15,7 @@ document.addEventListener("DOMContentLoaded", () => {
         map.remove();
     }
 
-    const worldBounds = [
-        [-90, -180],
-        [90, 180]
-    ];
+    const worldBounds = [[-90, -180], [90, 180]];
 
     map = L.map('map', {
         maxBounds: worldBounds,
@@ -56,15 +52,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
         try {
             const season = document.getElementById('season-filter')?.value || (typeof getCurrentSeason === 'function' ? getCurrentSeason() : 'Summer');
-            
             let clickName = "Regional Sector"; 
             let isProvenWater = false;
-            
-            const currentZoom = map.getZoom();
-            let nomZoom = currentZoom < 5 ? 3 : (currentZoom < 7 ? 5 : 10);
+            let nomZoom = map.getZoom() < 5 ? 3 : (map.getZoom() < 7 ? 5 : 10);
             
             try {
-                const geoRes = await fetch(`/api/v1/nominatim-proxy?lat=${e.latlng.lat}&lon=${e.latlng.lng}&zoom=${nomZoom}`);
+                const geoRes = await fetch(`/api/v1/nominatim-proxy?lat=${e.latlng.lat}&lon=${e.latlng.lng}&zoom=${nomZoom}&accept-language=en`);
                 if (geoRes.ok) {
                     const geoData = await geoRes.json();
                     if (!geoData.error) {
@@ -85,13 +78,10 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             const res = await fetch(`/api/v1/predict?lat=${e.latlng.lat}&lon=${e.latlng.lng}&region=${encodeURIComponent(clickName)}&season=${season}`);
-            
             if (res.ok) {
                 const data = await res.json();
                 if (data.predictions && data.predictions.length > 0) {
-                    
-                    const validThreats = data.predictions.filter(p => parseInt(p.probability_percentage) >= 30);
-                    
+                    const validThreats = data.predictions.filter(p => parseFloat(p.probability_percentage) >= 30);
                     if (validThreats.length > 0) {
                         let combinedHTML = `<div class="multi-threat-scroll" style="max-height: 280px; overflow-y: auto; padding-right: 5px;">`;
                         validThreats.forEach(threat => {
@@ -99,15 +89,12 @@ document.addEventListener("DOMContentLoaded", () => {
                             combinedHTML += buildPopupCard(threat, e.latlng.lat, e.latlng.lng);
                         });
                         combinedHTML += `</div>`;
-                        
                         popup.setContent(combinedHTML);
                         return;
                     }
                 }
             }
-            
             popup.setContent('<div class="glass-popup empty-state"><h3>Data says nothing to worry about! 🌿</h3></div>');
-            
         } catch (err) {
             popup.setContent('<div class="glass-popup empty-state"><h3>⚠️ ML Service unavailable. Please try again.</h3></div>');
         }
@@ -119,9 +106,7 @@ document.addEventListener("DOMContentLoaded", () => {
         clearTimeout(scanTimeout);
         scanTimeout = setTimeout(() => {
             const center = map.getBounds().getCenter();
-            if (typeof updateRegionMeta === 'function') {
-                updateRegionMeta(center.lat, center.lng);
-            }
+            if (typeof updateRegionMeta === 'function') updateRegionMeta(center.lat, center.lng);
             scanVisibleArea();
         }, 1500); 
     });
@@ -131,7 +116,6 @@ document.addEventListener("DOMContentLoaded", () => {
         scanTimeout = setTimeout(scanVisibleArea, 1500); 
     });
 
-    updateRegionMeta(map.getCenter().lat, map.getCenter().lng);
     scanVisibleArea();
 });
 
@@ -145,10 +129,11 @@ function getCurrentSeason() {
 
 function getCompassDirection(lat, lon, geoData) {
     if (!geoData || !geoData.boundingbox || geoData.boundingbox.length < 4) return "";
+    const type = geoData.addresstype || geoData.type || "";
+    if (['city', 'town', 'village', 'municipality'].includes(type.toLowerCase())) return "";
 
     const targetLat = parseFloat(lat);
     const targetLon = parseFloat(lon);
-
     const southLat = parseFloat(geoData.boundingbox[0]);
     const northLat = parseFloat(geoData.boundingbox[1]);
     const westLon = parseFloat(geoData.boundingbox[2]);
@@ -156,12 +141,10 @@ function getCompassDirection(lat, lon, geoData) {
 
     const latSpan = northLat - southLat;
     const lonSpan = eastLon - westLon;
-
-    if (latSpan < 0.02 || lonSpan < 0.02) return "";
+    if (latSpan < 0.1 || lonSpan < 0.1) return "";
 
     const latThird = latSpan / 3;
     const lonThird = lonSpan / 3;
-
     let v = "", h = "";
 
     if (targetLat >= northLat - latThird) v = "North";
@@ -177,6 +160,8 @@ function getCompassDirection(lat, lon, geoData) {
 
 function isWaterFromGeoData(geoData) {
     if (!geoData || geoData.error) return false;
+    const type = geoData.addresstype || geoData.type || "";
+    if (['city', 'town', 'village', 'municipality'].includes(type.toLowerCase())) return false;
 
     const isWaterMeta = (geoData.class === 'natural' && geoData.type === 'water') ||
         geoData.class === 'waterway' || geoData.type === 'sea' ||
@@ -184,116 +169,13 @@ function isWaterFromGeoData(geoData) {
 
     const dispName = (geoData.display_name || "").toLowerCase();
     const waterRegex = /\b(sea|ocean|gulf|marine|bay|strait)\b/;
-    
     return isWaterMeta || waterRegex.test(dispName);
-}
-
-async function isPointOverWater(lat, lon, signal) {
-    try {
-        const res = await fetch(`/api/v1/nominatim-proxy?lat=${lat}&lon=${lon}&zoom=14`, { signal });
-        if (!res.ok) return false;
-        const geoData = await res.json();
-        return isWaterFromGeoData(geoData);
-    } catch (err) {
-        if (err.name === 'AbortError') throw err;
-        return false;
-    }
-}
-
-async function resolveAreaName(lat, lon, signal) {
-    const cacheKey = `${lat.toFixed(1)},${lon.toFixed(1)}`;
-    if (areaNameCache.has(cacheKey)) {
-        return areaNameCache.get(cacheKey);
-    }
-
-    let areaName = null;
-    try {
-        const res = await fetch(`/api/v1/nominatim-proxy?lat=${lat}&lon=${lon}&zoom=8`, { signal });
-        if (res.ok) {
-            const geoData = await res.json();
-            if (!geoData.error && geoData.address) {
-                const addr = geoData.address;
-                const baseArea = addr.county || addr.state_district || addr.region || addr.state || addr.country || null;
-                if (baseArea) {
-                    areaName = `${getCompassDirection(lat, lon, geoData)}${baseArea}`;
-                }
-            }
-        }
-    } catch (err) {
-        if (err.name === 'AbortError') throw err;
-    }
-
-    areaNameCache.set(cacheKey, areaName);
-    return areaName;
-}
-
-async function findNearestOverpassFeature(query, lat, lon, signal) {
-    try {
-        const res = await fetch(`/api/v1/overpass-proxy?data=${encodeURIComponent(query)}`, { signal });
-        if (!res.ok) return null;
-
-        const data = await res.json();
-        if (!data.elements || data.elements.length === 0) return null;
-
-        let best = null;
-        let bestDist = Infinity;
-
-        data.elements.forEach(el => {
-            const elLat = el.lat ?? (el.center && el.center.lat);
-            const elLon = el.lon ?? (el.center && el.center.lon);
-            if (elLat === undefined || elLon === undefined) return;
-
-            const dist = Math.hypot(elLat - lat, elLon - lon);
-            if (dist < bestDist) {
-                bestDist = dist;
-                best = { lat: elLat, lon: elLon };
-            }
-        });
-
-        return best;
-    } catch (err) {
-        if (err.name === 'AbortError') throw err;
-        return null;
-    }
-}
-
-async function computePlacement(lat, lon, disasterType, signal) {
-    const type = (disasterType || "").toLowerCase();
-
-    if (type.includes('fire')) {
-        const query = `[out:json][timeout:5];(way["natural"="wood"](around:${WILDLAND_SEARCH_RADIUS_M},${lat},${lon});way["landuse"="forest"](around:${WILDLAND_SEARCH_RADIUS_M},${lat},${lon});relation["natural"="wood"](around:${WILDLAND_SEARCH_RADIUS_M},${lat},${lon});relation["landuse"="forest"](around:${WILDLAND_SEARCH_RADIUS_M},${lat},${lon}););out center 5;`;
-        const feature = await findNearestOverpassFeature(query, lat, lon, signal);
-        if (feature) return feature;
-
-        for (let attempt = 0; attempt < 4; attempt++) {
-            const angle = Math.random() * Math.PI * 2;
-            const candidate = {
-                lat: lat + Math.sin(angle) * WILDFIRE_JITTER_DEG,
-                lon: lon + Math.cos(angle) * WILDFIRE_JITTER_DEG
-            };
-            const overWater = await isPointOverWater(candidate.lat, candidate.lon, signal);
-            if (!overWater) return candidate; 
-        }
-        return { lat, lon };
-    }
-
-    if (type.includes('flood')) {
-        const query = `[out:json][timeout:5];(way["waterway"](around:${WATER_SEARCH_RADIUS_M},${lat},${lon});way["natural"="water"](around:${WATER_SEARCH_RADIUS_M},${lat},${lon});relation["natural"="water"](around:${WATER_SEARCH_RADIUS_M},${lat},${lon}););out center 3;`;
-        const feature = await findNearestOverpassFeature(query, lat, lon, signal);
-        if (feature) return feature;
-        return { lat, lon };
-    }
-
-    return { lat, lon };
 }
 
 function buildPopupCard(data, lat, lon) {
     const season = document.getElementById('season-filter')?.value || getCurrentSeason();
-    let reasonText = data.primary_reason || `Live ML forecast indicates a ${data.probability_percentage} probability for ${data.disaster_type} in the surrounding area.`;
-
-    if (data.years_of_data) {
-        reasonText += ` (Derived from ${data.years_of_data} years of historical data).`;
-    }
+    let reasonText = data.primary_reason || `Live ML forecast indicates a ${data.probability_percentage}% probability for ${data.disaster_type} in the surrounding area.`;
+    if (data.years_of_data) reasonText += ` (Derived from ${data.years_of_data} years of historical data).`;
 
     const precautionsList = data.dynamic_precautions && data.dynamic_precautions.length > 0 
         ? data.dynamic_precautions.map(p => `<li>${p}</li>`).join('')
@@ -317,16 +199,10 @@ function buildPopupCard(data, lat, lon) {
 
 async function updateRegionMeta(lat, lon) {
     const regionTextEl = document.getElementById('regionText');
-    
-    if (regionTextEl) {
-        regionTextEl.innerHTML = `<span style="opacity: 0.5;">Scanning Area...</span>`;
-    }
+    if (regionTextEl) regionTextEl.innerHTML = `<span style="opacity: 0.5;">Scanning Area...</span>`;
 
     const currentZoom = map.getZoom();
-    let nomZoom = 10;
-    if (currentZoom < 5) nomZoom = 3;
-    else if (currentZoom < 7) nomZoom = 5;
-    else if (currentZoom < 9) nomZoom = 8;
+    let nomZoom = currentZoom < 5 ? 3 : (currentZoom < 7 ? 5 : 8);
 
     try {
         const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=${nomZoom}&accept-language=en`, {
@@ -344,7 +220,6 @@ async function updateRegionMeta(lat, lon) {
                 else baseName = addr.county || addr.district || addr.state_district || addr.municipality || addr.city || addr.state || addr.country || "Local Sector";
 
                 if (addr.ocean || addr.sea || addr.water) baseName = addr.ocean || addr.sea || addr.water;
-
                 const prefix = getCompassDirection(lat, lon, data);
                 currentRegionName = prefix + baseName;
             } else {
@@ -357,100 +232,60 @@ async function updateRegionMeta(lat, lon) {
         currentRegionName = "Regional View";
     }
 
-    if (regionTextEl) {
-        regionTextEl.innerText = currentRegionName;
-    }
+    if (regionTextEl) regionTextEl.innerText = currentRegionName;
 }
 
 async function scanVisibleArea() {
-    if (window.currentScanController) {
-        window.currentScanController.abort();
-    }
+    if (window.currentScanController) window.currentScanController.abort();
     window.currentScanController = new AbortController();
     const globalSignal = window.currentScanController.signal;
 
     const bounds = map.getBounds();
     const season = document.getElementById('season-filter')?.value || (typeof getCurrentSeason === 'function' ? getCurrentSeason() : 'Summer');
-    const currentZoom = map.getZoom();
+    
+    const latStep = (bounds.getNorth() - bounds.getSouth()) / 3;
+    const lonStep = (bounds.getEast() - bounds.getWest()) / 3;
+    const s = bounds.getSouth();
+    const w = bounds.getWest();
 
-    const s = bounds.getSouth().toFixed(4);
-    const w = bounds.getWest().toFixed(4);
-    const n = bounds.getNorth().toFixed(4);
-    const e = bounds.getEast().toFixed(4);
+    let fallbackPoints = [];
+    for (let i = 1; i <= 2; i++) {
+        for (let j = 1; j <= 2; j++) {
+            fallbackPoints.push({ lat: s + (latStep * i), lon: w + (lonStep * j) });
+        }
+    }
+    fallbackPoints.push({ lat: bounds.getCenter().lat, lon: bounds.getCenter().lng });
 
     let rawPoints = [];
+    for (const pt of fallbackPoints) {
+        if (globalSignal.aborted) return;
+        let isValidLand = true; 
+        let regionName = "Regional Sector"; 
 
-    const overpassController = new AbortController();
-    const overpassTimeout = setTimeout(() => overpassController.abort(), 6000);
-    globalSignal.addEventListener('abort', () => { overpassController.abort(); clearTimeout(overpassTimeout); });
-
-    try {
-        let nodeLimit = currentZoom < 6 ? 5 : (currentZoom >= 10 ? 12 : 8);
-        let placeFilter = currentZoom < 6 ? "country|state|city" : "city|town|municipality";
-        const query = `[out:json][timeout:5];node["place"~"${placeFilter}"](${s},${w},${n},${e});out ${nodeLimit};`;
-
-        const overpassRes = await fetch(`/api/v1/overpass-proxy?data=${encodeURIComponent(query)}`, { signal: overpassController.signal });
-
-        if (overpassRes.ok) {
-            const cityData = await overpassRes.json();
-            if (cityData.elements) {
-                cityData.elements.forEach(city => {
-                    const placeName = city.tags['name:en'] || city.tags.name || "Regional Sector";
-                    rawPoints.push({ lat: parseFloat(city.lat), lon: parseFloat(city.lon), name: placeName });
-                });
-            }
-        }
-    } catch (err) {
-        if (err.name === 'AbortError' && globalSignal.aborted) return;
-        console.warn("Overpass API unavailable. Triggering fail-open fallback grid.");
-    } finally {
-        clearTimeout(overpassTimeout); 
-    }
-
-    if (rawPoints.length === 0) {
-        const center = bounds.getCenter();
-        const latOff = (bounds.getNorth() - bounds.getSouth()) * 0.25;
-        const lonOff = (bounds.getEast() - bounds.getWest()) * 0.25;
-        
-        const fallbackPoints = [
-            { lat: center.lat, lon: center.lng },
-            { lat: center.lat + latOff, lon: center.lng - lonOff }, 
-            { lat: center.lat + latOff, lon: center.lng + lonOff }, 
-            { lat: center.lat - latOff, lon: center.lng - lonOff }, 
-            { lat: center.lat - latOff, lon: center.lng + lonOff }  
-        ];
-
-        for (const pt of fallbackPoints) {
-            if (globalSignal.aborted) return;
-
-            let isValidLand = true; 
-            let regionName = "Regional Sector"; 
-
-            try {
-                const geoRes = await fetch(`/api/v1/nominatim-proxy?lat=${pt.lat}&lon=${pt.lon}&zoom=10`, { signal: globalSignal });
-                if (geoRes.ok) {
-                    const geoData = await geoRes.json();
-                    if (!geoData.error) {
-                        if (isWaterFromGeoData(geoData)) {
-                            isValidLand = false; 
-                        } else if (geoData.address) {
-                            regionName = geoData.address.municipality || geoData.address.town || geoData.address.city || "Regional Sector";
-                        }
+        try {
+            const geoRes = await fetch(`/api/v1/nominatim-proxy?lat=${pt.lat}&lon=${pt.lon}&zoom=10&accept-language=en`, { signal: globalSignal });
+            if (geoRes.ok) {
+                const geoData = await geoRes.json();
+                if (!geoData.error) {
+                    if (isWaterFromGeoData(geoData)) {
+                        isValidLand = false; 
+                    } else if (geoData.address) {
+                        regionName = geoData.address.municipality || geoData.address.town || geoData.address.city || "Regional Sector";
                     }
                 }
-            } catch (err) {
-                if (err.name === 'AbortError') return;
             }
-
-            if (isValidLand) {
-                rawPoints.push({ lat: pt.lat, lon: pt.lon, name: regionName });
-            }
-
-            await new Promise(resolve => {
-                const timer = setTimeout(resolve, 1100);
-                globalSignal.addEventListener('abort', () => { clearTimeout(timer); resolve(); });
-            });
+        } catch (err) {
+            if (err.name === 'AbortError') return;
         }
+
+        if (isValidLand) {
+            rawPoints.push({ lat: pt.lat, lon: pt.lon, name: regionName });
+        }
+
+        await new Promise(resolve => {
+            const timer = setTimeout(resolve, 800);
+            globalSignal.addEventListener('abort', () => { clearTimeout(timer); resolve(); });
+        });
     }
 
     if (globalSignal.aborted) return;
@@ -465,7 +300,7 @@ async function scanVisibleArea() {
                 const data = await res.json();
                 if (data.predictions && data.predictions.length > 0) {
                     data.predictions.forEach(pred => {
-                        if (parseInt(pred.probability_percentage) >= 30) {
+                        if (parseFloat(pred.probability_percentage) >= 30) {
                             predictionsList.push({ lat: pt.lat, lon: pt.lon, name: pt.name, threat: pred });
                         }
                     });
@@ -477,58 +312,39 @@ async function scanVisibleArea() {
     }
 
     if (globalSignal.aborted) return;
-    predictionsList.sort((a, b) => parseInt(b.threat.probability_percentage) - parseInt(a.threat.probability_percentage));
+    predictionsList.sort((a, b) => parseFloat(b.threat.probability_percentage) - parseFloat(a.threat.probability_percentage));
 
-    let dedupeDistance = 0.2; 
-    if (currentZoom < 6) dedupeDistance = 0.8; 
-    else if (currentZoom < 8) dedupeDistance = 0.5; 
-    else if (currentZoom >= 10) dedupeDistance = 0.08; 
+    const dedupeDistance = map.getZoom() < 7 ? 0.3 : (map.getZoom() < 10 ? 0.15 : 0.05); 
 
     for (const pt of predictionsList) {
-        if (globalSignal.aborted) return;
-
-        let areaName = null;
-        try {
-            areaName = await resolveAreaName(pt.lat, pt.lon, globalSignal);
-        } catch (err) {
-            if (err.name === 'AbortError') return;
-        }
-
-        const areaLabel = areaName || (pt.name && pt.name !== "Regional Sector" ? pt.name : `${pt.lat.toFixed(2)}_${pt.lon.toFixed(2)}`);
-        const uniqueKey = `${areaLabel}-${pt.threat.disaster_type}`;
-
+        const uniqueKey = `${pt.name}-${pt.threat.disaster_type}`;
         const isDuplicate = plottedMarkersCache.some(cachedPt => cachedPt.uniqueKey === uniqueKey);
-        if (isDuplicate) continue;
+        
+        if (!isDuplicate) {
+            let finalLat = pt.lat;
+            let finalLon = pt.lon;
 
-        let placement = { lat: pt.lat, lon: pt.lon };
-        try {
-            placement = await computePlacement(pt.lat, pt.lon, pt.threat.disaster_type, globalSignal);
-        } catch (err) {
-            if (err.name === 'AbortError') return;
+            if (pt.threat.disaster_type.toLowerCase().includes('fire')) {
+                const hash = (Math.abs(pt.lat) * 100 + Math.abs(pt.lon) * 100) % 4;
+                if (hash < 1) { finalLat += WILDFIRE_JITTER_DEG; finalLon += WILDFIRE_JITTER_DEG; }
+                else if (hash < 2) { finalLat += WILDFIRE_JITTER_DEG; finalLon -= WILDFIRE_JITTER_DEG; }
+                else if (hash < 3) { finalLat -= WILDFIRE_JITTER_DEG; finalLon += WILDFIRE_JITTER_DEG; }
+                else { finalLat -= WILDFIRE_JITTER_DEG; finalLon -= WILDFIRE_JITTER_DEG; }
+            }
+
+            const spatialOverlap = plottedMarkersCache.some(c => Math.hypot(finalLat - c.lat, finalLon - c.lon) < dedupeDistance);
+            if (spatialOverlap) {
+                finalLon += 0.03;
+            }
+
+            plottedMarkersCache.push({ lat: finalLat, lon: finalLon, type: pt.threat.disaster_type, name: pt.name, uniqueKey: uniqueKey });
+            plotDynamicMarker(finalLat, finalLon, pt.threat, pt.name);
         }
-
-        let finalLat = placement.lat;
-        let finalLon = placement.lon;
-
-        const spatialOverlap = plottedMarkersCache.some(c => Math.hypot(finalLat - c.lat, finalLon - c.lon) < dedupeDistance);
-        if (spatialOverlap) {
-            finalLon += 0.04;
-        }
-
-        plottedMarkersCache.push({
-            lat: finalLat,
-            lon: finalLon,
-            type: pt.threat.disaster_type,
-            name: pt.name,
-            uniqueKey: uniqueKey
-        });
-
-        plotDynamicMarker(finalLat, finalLon, pt.threat, pt.name);
     }
 }
 
 function plotDynamicMarker(lat, lon, topThreat, cityName) {
-    const probability = parseInt(topThreat.probability_percentage);
+    const probability = parseFloat(topThreat.probability_percentage);
     if (probability < 30) return;
 
     let risk = probability >= 65 ? 'high' : (probability >= 40 ? 'medium' : 'low');
@@ -550,58 +366,41 @@ function plotDynamicMarker(lat, lon, topThreat, cityName) {
         L.DomEvent.stopPropagation(e);
         map.flyTo([lat, lon], 10, { duration: 1.2 });
 
-        const popup = L.popup({
-            offset: [0, -10],
-            className: 'custom-glass-wrapper'
-        })
+        const popupDetails = {
+            locality: cityName || "Resolving region...",
+            disaster_type: topThreat.disaster_type,
+            risk_rating: risk,
+            probability_percentage: probability,
+            primary_reason: topThreat.primary_reason || `Live ML forecast indicates a ${probability}% probability for ${topThreat.disaster_type}.`,
+            dynamic_precautions: topThreat.dynamic_precautions || ["Monitor local safety warnings."]
+        };
+
+        const popup = L.popup({ offset: [0, -10], className: 'custom-glass-wrapper' })
             .setLatLng([lat, lon])
-            .setContent('<div class="glass-popup empty-state"><h3>📡 Gathering all threat data...</h3></div>')
+            .setContent(buildPopupCard(popupDetails, lat, lon))
             .openOn(map);
 
         try {
-            const season = document.getElementById('season-filter')?.value || getCurrentSeason();
-            let finalName = cityName;
-            let directionPrefix = "";
-
             let nomZoom = map.getZoom() < 5 ? 3 : (map.getZoom() < 7 ? 5 : 8);
             const geo = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=${nomZoom}&accept-language=en`);
+
             if (geo.ok) {
                 const geoData = await geo.json();
                 if (geoData.address) {
                     const addr = geoData.address;
+                    let finalName = cityName;
+                    
                     if (nomZoom === 3) finalName = addr.country || "International Space";
                     else if (nomZoom === 5) finalName = addr.state || addr.region || addr.country || finalName;
-                    else finalName = addr.county || addr.district || addr.municipality || addr.city || finalName;
+                    else finalName = addr.county || addr.municipality || addr.city || finalName;
                     
-                    directionPrefix = getCompassDirection(lat, lon, geoData);
+                    const directionPrefix = getCompassDirection(lat, lon, geoData);
+                    popupDetails.locality = `${directionPrefix}${finalName}`;
+                    popup.setContent(buildPopupCard(popupDetails, lat, lon));
                 }
             }
-
-            const localityString = `${directionPrefix}${finalName}`;
-            const res = await fetch(`/api/v1/predict?lat=${lat}&lon=${lon}&region=${encodeURIComponent(finalName)}&season=${season}`);
-            
-            if (res.ok) {
-                const data = await res.json();
-                if (data.predictions && data.predictions.length > 0) {
-                    const validThreats = data.predictions.filter(p => parseInt(p.probability_percentage) >= 30);
-                    
-                    if (validThreats.length > 0) {
-                        let combinedHTML = `<div class="multi-threat-scroll" style="max-height: 280px; overflow-y: auto; padding-right: 5px;">`;
-                        validThreats.forEach(threat => {
-                            threat.locality = localityString;
-                            combinedHTML += buildPopupCard(threat, lat, lon);
-                        });
-                        combinedHTML += `</div>`;
-                        
-                        popup.setContent(combinedHTML);
-                        return;
-                    }
-                }
-            }
-            
-            popup.setContent('<div class="glass-popup empty-state"><h3>Data says nothing to worry about! 🌿</h3></div>');
         } catch (err) {
-            popup.setContent('<div class="glass-popup empty-state"><h3>⚠️ ML Service unavailable.</h3></div>');
+            console.warn("Background name resolution failed, retaining cache.");
         }
     });
 
