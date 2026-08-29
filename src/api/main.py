@@ -191,3 +191,5 @@ def serve_frontend():
     if not index_file.exists():
         raise HTTPException(status_code=404, detail="index.html not found. Did you create it in src/frontend?")
     return FileResponse(str(index_file))
+
+app.mount("/", StaticFiles(directory="src/frontend", html=True), name="frontend")
