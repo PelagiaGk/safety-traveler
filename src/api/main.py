@@ -4,9 +4,8 @@ import math
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
-from fastapi import FastAPI, Query, HTTPException, Depends
+from fastapi import FastAPI, Query, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 import httpx
 
@@ -14,16 +13,17 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
+FRONTEND_DIR = BASE_DIR / "src" / "frontend"
+
 from src.api.dependencies import get_disaster_data, get_predictor
 from src.models.inference import DisasterPredictor
 from src.data.schemas import SeasonEnum
 
-app = FastAPI(title="Safety Traveler API", page_icon= "🌍")
-app.mount("/src/frontend", StaticFiles(directory="src/frontend"), name="frontend")
+app = FastAPI(title="Safety Traveler API", page_icon="🌍")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -56,10 +56,10 @@ def get_nearest_region(lat: float, lon: float, features: List[Dict]) -> Optional
     return nearest_props
 
 @app.get("/api/v1/nominatim-proxy")
-async def nominatim_proxy(lat: float, lon: float, zoom: int = 10):
+async def nominatim_proxy(lat: float, lon: float, zoom: int = 10, accept_language: str = "en"):
     """Proxies Nominatim requests with strict OSM-compliant headers."""
     url = "https://nominatim.openstreetmap.org/reverse"
-    params = {"format": "json", "lat": lat, "lon": lon, "zoom": zoom, "accept-language": "en"}
+    params = {"format": "json", "lat": lat, "lon": lon, "zoom": zoom, "accept-language": accept_language}
     
     headers = {"User-Agent": "PublicSafetyDashboard/1.0 (open-source-dev@example.com)"}
     
@@ -71,7 +71,6 @@ async def nominatim_proxy(lat: float, lon: float, zoom: int = 10):
             return response.json()
         except Exception as e:
             return {"error": str(e), "address": {}}
-
 
 @app.get("/api/v1/overpass-proxy")
 async def overpass_proxy(data: str):
@@ -136,8 +135,10 @@ def predict_risk(
     active_season = season if season else get_current_season()
     target_region = region if region else "Unknown"
 
-    if target_region and any(term in target_region for term in ["Sea", "Ocean", "Marine", "Gulf"]):
-        return {"predictions": []}
+    if target_region:
+        tr_lower = target_region.lower()
+        if any(term in tr_lower for term in ["sea", "ocean", "marine", "gulf", "bay", "strait"]):
+            return {"predictions": []}
 
     return predictor.predict(
         region=target_region,
@@ -182,14 +183,7 @@ def get_default_view(
         }
     }
 
-FRONTEND_DIR = BASE_DIR / "src" / "frontend"
-
-@app.get("/")
-def serve_frontend():
-    """Serves the main HTML file."""
-    index_file = FRONTEND_DIR / "index.html"
-    if not index_file.exists():
-        raise HTTPException(status_code=404, detail="index.html not found. Did you create it in src/frontend?")
-    return FileResponse(str(index_file))
-
-app.mount("/", StaticFiles(directory="src/frontend", html=True), name="frontend")
+if FRONTEND_DIR.exists():
+    app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
+else:
+    print(f"Warning: Frontend directory {FRONTEND_DIR} not found. The API will run, but the UI will not load.")
