@@ -85,7 +85,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 return;
             }
 
-            const res = await fetch(`/api/v1/predict?lat=${e.latlng.lat}&lon=${e.latlng.lng}&region=${encodeURIComponent(clickName)}&season=${season}`);
+            const res = await fetch(`/api/predict?lat=${e.latlng.lat}&lon=${e.latlng.lng}&region=${encodeURIComponent(clickName)}&season=${season}`);
             
             if (res.ok) {
                 const data = await res.json();
@@ -493,7 +493,7 @@ async function scanVisibleArea() {
     for (const pt of rawPoints) {
         if (globalSignal.aborted) return;
         try {
-            const url = `/api/v1/predict?lat=${pt.lat}&lon=${pt.lon}&region=${encodeURIComponent(pt.name)}&season=${season}`;
+            const url = `/api/predict?lat=${pt.lat}&lon=${pt.lon}&region=${encodeURIComponent(pt.name)}&season=${season}`;
             const res = await fetch(url, { signal: globalSignal });
             if (res.ok) {
                 const data = await res.json();
