@@ -57,7 +57,9 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             const season = document.getElementById('season-filter')?.value || (typeof getCurrentSeason === 'function' ? getCurrentSeason() : 'Summer');
             
-            let clickName = null; 
+            let clickName = "Regional Sector"; 
+            let isProvenWater = false;
+
             const currentZoom = map.getZoom();
             let nomZoom = currentZoom < 5 ? 3 : (currentZoom < 7 ? 5 : 10);
             
@@ -66,16 +68,20 @@ document.addEventListener("DOMContentLoaded", () => {
                 
                 if (geoRes.ok) {
                     const geoData = await geoRes.json();
-                    if (!geoData.error && !isWaterFromGeoData(geoData)) {
-                        clickName = (geoData.address && (geoData.address.municipality || geoData.address.town || geoData.address.city || geoData.address.county)) || "Regional Sector";
+                    if (!geoData.error) {
+                        if (isWaterFromGeoData(geoData)) {
+                            isProvenWater = true;
+                        } else if (geoData.address) {
+                            clickName = geoData.address.municipality || geoData.address.town || geoData.address.city || geoData.address.county || "Regional Sector";
+                        }
                     }
                 }
             } catch (err) {
-                console.warn("Geocode request failed. Failsafe activated.");
+                console.warn("Geocode request failed. Proceeding with default land assumption.");
             }
 
-            if (!clickName) {
-                popup.setContent('<div class="glass-popup empty-state"><h3>⚠️ Location invalid or network busy. Please try again.</h3></div>');
+            if (isProvenWater) {
+                popup.setContent('<div class="glass-popup empty-state"><h3>Data says nothing to worry about! 🌿</h3></div>');
                 return;
             }
 
@@ -181,18 +187,16 @@ function getCompassDirection(lat, lon, geoData) {
 
     if (latSpan < 0.005 || lonSpan < 0.005) return "";
 
-    const boxCenterLat = southLat + (latSpan / 2);
-    const boxCenterLon = westLon + (lonSpan / 2);
-
-    const latDeadzone = latSpan / 5;
-    const lonDeadzone = lonSpan / 5;
+    const latThird = latSpan / 3;
+    const lonThird = lonSpan / 3;
 
     let v = "", h = "";
-    if (targetLat > boxCenterLat + latDeadzone) v = "North";
-    else if (targetLat < boxCenterLat - latDeadzone) v = "South";
 
-    if (targetLon > boxCenterLon + lonDeadzone) h = "East";
-    else if (targetLon < boxCenterLon - lonDeadzone) h = "West";
+    if (targetLat > northLat - latThird) v = "North";
+    else if (targetLat < southLat + latThird) v = "South";
+
+    if (targetLon > eastLon - lonThird) h = "East";
+    else if (targetLon < westLon + lonThird) h = "West";
 
     if (v && h) return `${v}${h.toLowerCase()}ern `;
     if (v || h) return `${v || h}ern `;
