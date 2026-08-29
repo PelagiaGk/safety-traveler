@@ -85,13 +85,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 return;
             }
 
-            const res = await fetch(`/api/predict?lat=${e.latlng.lat}&lon=${e.latlng.lng}&region=${encodeURIComponent(clickName)}&season=${season}`);
+            const res = await fetch(`/api/v1/predict?lat=${e.latlng.lat}&lon=${e.latlng.lng}&region=${encodeURIComponent(clickName)}&season=${season}`);
             
             if (res.ok) {
                 const data = await res.json();
                 if (data.predictions && data.predictions.length > 0) {
                     
-                    const validThreats = data.predictions.filter(p => parseInt(p.probability_percentage) >= 30);
+                    const validThreats = data.predictions.filter(p => parseFloat(p.probability_percentage) >= 30);
                     
                     if (validThreats.length > 0) {
                         let combinedHTML = `<div class="multi-threat-scroll" style="max-height: 280px; overflow-y: auto; padding-right: 5px;">`;
@@ -185,18 +185,18 @@ function getCompassDirection(lat, lon, geoData) {
     const latSpan = northLat - southLat;
     const lonSpan = eastLon - westLon;
 
-    if (latSpan < 0.005 || lonSpan < 0.005) return "";
+    if (latSpan <= 0 || lonSpan <= 0) return "";
 
     const latThird = latSpan / 3;
     const lonThird = lonSpan / 3;
 
     let v = "", h = "";
 
-    if (targetLat > northLat - latThird) v = "North";
-    else if (targetLat < southLat + latThird) v = "South";
+    if (targetLat >= northLat - latThird) v = "North";
+    else if (targetLat <= southLat + latThird) v = "South";
 
-    if (targetLon > eastLon - lonThird) h = "East";
-    else if (targetLon < westLon + lonThird) h = "West";
+    if (targetLon >= eastLon - lonThird) h = "East";
+    else if (targetLon <= westLon + lonThird) h = "West";
 
     if (v && h) return `${v}${h.toLowerCase()}ern `;
     if (v || h) return `${v || h}ern `;
@@ -210,8 +210,9 @@ function isWaterFromGeoData(geoData) {
         geoData.class === 'waterway' || geoData.type === 'sea' ||
         (geoData.address && (geoData.address.sea || geoData.address.ocean));
 
-    const dispName = (geoData.display_name || "").toLowerCase();
-    const isWaterText = ["sea", "ocean", "gulf", "marine", "bay", "strait"].some(t => dispName.includes(t));
+    const dispName = (geoData.display_name || "");
+    const waterRegex = /\b(sea|ocean|gulf|marine|bay|strait)\b/i;
+    const isWaterText = waterRegex.test(dispName);
 
     return isWaterMeta || isWaterText;
 }
@@ -493,13 +494,13 @@ async function scanVisibleArea() {
     for (const pt of rawPoints) {
         if (globalSignal.aborted) return;
         try {
-            const url = `/api/predict?lat=${pt.lat}&lon=${pt.lon}&region=${encodeURIComponent(pt.name)}&season=${season}`;
+            const url = `/api/v1/predict?lat=${pt.lat}&lon=${pt.lon}&region=${encodeURIComponent(pt.name)}&season=${season}`;
             const res = await fetch(url, { signal: globalSignal });
             if (res.ok) {
                 const data = await res.json();
                 if (data.predictions && data.predictions.length > 0) {
                     data.predictions.forEach(pred => {
-                        if (parseInt(pred.probability_percentage) >= 30) {
+                        if (parseFloat(pred.probability_percentage) >= 30) {
                             predictionsList.push({ lat: pt.lat, lon: pt.lon, name: pt.name, threat: pred });
                         }
                     });
@@ -511,7 +512,7 @@ async function scanVisibleArea() {
     }
 
     if (globalSignal.aborted) return;
-    predictionsList.sort((a, b) => parseInt(b.threat.probability_percentage) - parseInt(a.threat.probability_percentage));
+    predictionsList.sort((a, b) => parseFloat(b.threat.probability_percentage) - parseFloat(a.threat.probability_percentage));
 
     let dedupeDistance = 0.2; 
     if (currentZoom < 6) dedupeDistance = 0.8; 
@@ -562,7 +563,7 @@ async function scanVisibleArea() {
 }
 
 function plotDynamicMarker(lat, lon, topThreat, cityName) {
-    const probability = parseInt(topThreat.probability_percentage);
+    const probability = parseFloat(topThreat.probability_percentage);
     if (probability < 30) return;
 
     let risk = probability >= 65 ? 'high' : (probability >= 40 ? 'medium' : 'low');
