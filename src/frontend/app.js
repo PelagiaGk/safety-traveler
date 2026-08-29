@@ -56,12 +56,15 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             const season = document.getElementById('season-filter')?.value || (typeof getCurrentSeason === 'function' ? getCurrentSeason() : 'Summer');
             
-            let clickName = null; 
+            let clickName = "Regional Sector"; 
+            let isProvenWater = false;
+            
             const currentZoom = map.getZoom();
-            let nomZoom = currentZoom < 5 ? 3 : (currentZoom < 7 ? 5 : 8);
+            let nomZoom = currentZoom < 5 ? 3 : (currentZoom < 7 ? 5 : 10);
             
             try {
                 const geoRes = await fetch(`/api/v1/nominatim-proxy?lat=${e.latlng.lat}&lon=${e.latlng.lng}&zoom=${nomZoom}`);
+                
                 if (geoRes.ok) {
                     const geoData = await geoRes.json();
                     
@@ -73,37 +76,40 @@ document.addEventListener("DOMContentLoaded", () => {
                         const dispName = (geoData.display_name || "").toLowerCase();
                         const isWaterText = ["sea", "ocean", "gulf", "marine", "bay", "strait"].some(t => dispName.includes(t));
 
-                        if (!isWaterMeta && !isWaterText) {
-                            clickName = (geoData.address && (geoData.address.municipality || geoData.address.town || geoData.address.city || geoData.address.county)) || "Regional Sector";
+                        if (isWaterMeta || isWaterText) {
+                            isProvenWater = true; 
+                        } else if (geoData.address) {
+                            clickName = geoData.address.municipality || geoData.address.town || geoData.address.city || geoData.address.county || "Regional Sector";
                         }
                     }
                 }
             } catch (err) {
-                console.warn("Geocode strictly failed.");
             }
 
-            if (!clickName) {
-                popup.setContent('<div class="glass-popup empty-state"><h3>⚠️ Location invalid or network busy. Please try again.</h3></div>');
+            if (isProvenWater) {
+                popup.setContent('<div class="glass-popup empty-state"><h3>Data says nothing to worry about! 🌿</h3></div>');
                 return;
             }
 
             const res = await fetch(`/api/v1/predict?lat=${e.latlng.lat}&lon=${e.latlng.lng}&region=${encodeURIComponent(clickName)}&season=${season}`);
-            const data = await res.json();
             
-            if (data.predictions && data.predictions.length > 0) {
-                let topThreat = data.predictions.find(p => parseInt(p.probability_percentage) >= 30);
-                
-                if (topThreat) {
-                    topThreat.locality = clickName;
-                    popup.setContent(buildPopupCard(topThreat, e.latlng.lat, e.latlng.lng));
-                    return;
+            if (res.ok) {
+                const data = await res.json();
+                if (data.predictions && data.predictions.length > 0) {
+                    let topThreat = data.predictions.find(p => parseInt(p.probability_percentage) >= 30);
+                    
+                    if (topThreat) {
+                        topThreat.locality = clickName;
+                        popup.setContent(buildPopupCard(topThreat, e.latlng.lat, e.latlng.lng));
+                        return;
+                    }
                 }
             }
             
             popup.setContent('<div class="glass-popup empty-state"><h3>Data says nothing to worry about! 🌿</h3></div>');
             
         } catch (err) {
-            popup.setContent('<div class="glass-popup empty-state"><h3>⚠️ Location invalid or network busy. Please try again.</h3></div>');
+            popup.setContent('<div class="glass-popup empty-state"><h3>⚠️ ML Service unavailable. Please try again.</h3></div>');
         }
     });
 
