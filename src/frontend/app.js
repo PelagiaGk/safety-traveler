@@ -290,8 +290,6 @@ async function updateRegionMeta(lat, lon) {
 
 window.currentScanController = null;
 
-window.currentScanController = null;
-
 async function scanVisibleArea() {
     if (window.currentScanController) {
         window.currentScanController.abort();
