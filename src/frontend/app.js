@@ -8,6 +8,10 @@ let currentActivePopup = null;
 let plottedMarkersCache = [];
 const MIN_DISTANCE_THRESHOLD = 0.25;
 window.isMapScanning = false;
+const WILDLAND_SEARCH_RADIUS_M = 8000;
+const WATER_SEARCH_RADIUS_M = 8000;
+const WILDFIRE_JITTER_DEG = 0.035;
+const areaNameCache = new Map();
 
 document.addEventListener("DOMContentLoaded", () => {
     if (map !== undefined && map !== null) {
@@ -65,18 +69,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 
                 if (geoRes.ok) {
                     const geoData = await geoRes.json();
-                    
-                    if (!geoData.error) {
-                        const isWaterMeta = (geoData.class === 'natural' && geoData.type === 'water') || 
-                                            geoData.class === 'waterway' || geoData.type === 'sea' || 
-                                            (geoData.address && (geoData.address.sea || geoData.address.ocean));
-                        
-                        const dispName = (geoData.display_name || "").toLowerCase();
-                        const isWaterText = ["sea", "ocean", "gulf", "marine", "bay", "strait"].some(t => dispName.includes(t));
 
-                        if (!isWaterMeta && !isWaterText) {
-                            clickName = (geoData.address && (geoData.address.municipality || geoData.address.town || geoData.address.city || geoData.address.county)) || "Regional Sector";
-                        }
+                    if (!geoData.error && !isWaterFromGeoData(geoData)) {
+                        clickName = (geoData.address && (geoData.address.municipality || geoData.address.town || geoData.address.city || geoData.address.county)) || "Regional Sector";
                     }
                 }
             } catch (err) {
@@ -163,6 +158,9 @@ document.addEventListener("DOMContentLoaded", () => {
         clearTimeout(scanTimeout);
         scanTimeout = setTimeout(scanVisibleArea, 1500); 
     });
+
+    updateRegionMeta(map.getCenter().lat, map.getCenter().lng);
+    scanVisibleArea();
 });
 
 function getCurrentSeason() {
@@ -206,6 +204,120 @@ function getCompassDirection(lat, lon, geoData) {
     if (v && h) return `${v}${h.toLowerCase()}ern `;
     if (v || h) return `${v || h}ern `;
     return "Central ";
+}
+
+function isWaterFromGeoData(geoData) {
+    if (!geoData || geoData.error) return false;
+
+    const isWaterMeta = (geoData.class === 'natural' && geoData.type === 'water') ||
+        geoData.class === 'waterway' || geoData.type === 'sea' ||
+        (geoData.address && (geoData.address.sea || geoData.address.ocean));
+
+    const dispName = (geoData.display_name || "").toLowerCase();
+    const isWaterText = ["sea", "ocean", "gulf", "marine", "bay", "strait"].some(t => dispName.includes(t));
+
+    return isWaterMeta || isWaterText;
+}
+
+async function isPointOverWater(lat, lon, signal) {
+    try {
+        const res = await fetch(`/api/v1/nominatim-proxy?lat=${lat}&lon=${lon}&zoom=14`, { signal });
+        if (!res.ok) return false;
+        const geoData = await res.json();
+        return isWaterFromGeoData(geoData);
+    } catch (err) {
+        if (err.name === 'AbortError') throw err;
+        return false;
+    }
+}
+
+async function resolveAreaName(lat, lon, signal) {
+    const cacheKey = `${lat.toFixed(1)},${lon.toFixed(1)}`;
+    if (areaNameCache.has(cacheKey)) {
+        return areaNameCache.get(cacheKey);
+    }
+
+    let areaName = null;
+    try {
+        const res = await fetch(`/api/v1/nominatim-proxy?lat=${lat}&lon=${lon}&zoom=8`, { signal });
+        if (res.ok) {
+            const geoData = await res.json();
+            if (!geoData.error && geoData.address) {
+                const addr = geoData.address;
+                const baseArea = addr.county || addr.state_district || addr.region || addr.state || addr.country || null;
+                if (baseArea) {
+                    areaName = `${getCompassDirection(lat, lon, geoData)}${baseArea}`;
+                }
+            }
+        }
+    } catch (err) {
+        if (err.name === 'AbortError') throw err;
+        console.warn("Area name resolution failed; falling back to a per-point dedupe key.");
+    }
+
+    areaNameCache.set(cacheKey, areaName);
+    return areaName;
+}
+
+async function findNearestOverpassFeature(query, lat, lon, signal) {
+    try {
+        const res = await fetch(`/api/v1/overpass-proxy?data=${encodeURIComponent(query)}`, { signal });
+        if (!res.ok) return null;
+
+        const data = await res.json();
+        if (!data.elements || data.elements.length === 0) return null;
+
+        let best = null;
+        let bestDist = Infinity;
+
+        data.elements.forEach(el => {
+            const elLat = el.lat ?? (el.center && el.center.lat);
+            const elLon = el.lon ?? (el.center && el.center.lon);
+            if (elLat === undefined || elLon === undefined) return;
+
+            const dist = Math.hypot(elLat - lat, elLon - lon);
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = { lat: elLat, lon: elLon };
+            }
+        });
+
+        return best;
+    } catch (err) {
+        if (err.name === 'AbortError') throw err;
+        console.warn("Overpass placement lookup failed; using default position.");
+        return null;
+    }
+}
+
+async function computePlacement(lat, lon, disasterType, signal) {
+    const type = (disasterType || "").toLowerCase();
+
+    if (type.includes('fire')) {
+        const query = `[out:json][timeout:5];(way["natural"="wood"](around:${WILDLAND_SEARCH_RADIUS_M},${lat},${lon});way["landuse"="forest"](around:${WILDLAND_SEARCH_RADIUS_M},${lat},${lon});relation["natural"="wood"](around:${WILDLAND_SEARCH_RADIUS_M},${lat},${lon});relation["landuse"="forest"](around:${WILDLAND_SEARCH_RADIUS_M},${lat},${lon}););out center 5;`;
+        const feature = await findNearestOverpassFeature(query, lat, lon, signal);
+        if (feature) return feature;
+
+        for (let attempt = 0; attempt < 4; attempt++) {
+            const angle = Math.random() * Math.PI * 2;
+            const candidate = {
+                lat: lat + Math.sin(angle) * WILDFIRE_JITTER_DEG,
+                lon: lon + Math.cos(angle) * WILDFIRE_JITTER_DEG
+            };
+            const overWater = await isPointOverWater(candidate.lat, candidate.lon, signal);
+            if (!overWater) return candidate;
+        }
+        return { lat, lon };
+    }
+
+    if (type.includes('flood')) {
+        const query = `[out:json][timeout:5];(way["waterway"](around:${WATER_SEARCH_RADIUS_M},${lat},${lon});way["natural"="water"](around:${WATER_SEARCH_RADIUS_M},${lat},${lon});relation["natural"="water"](around:${WATER_SEARCH_RADIUS_M},${lat},${lon}););out center 3;`;
+        const feature = await findNearestOverpassFeature(query, lat, lon, signal);
+        if (feature) return feature;
+        return { lat, lon };
+    }
+
+    return { lat, lon };
 }
 
 function buildPopupCard(data, lat, lon) {
@@ -358,20 +470,11 @@ async function scanVisibleArea() {
                 const geoRes = await fetch(`/api/v1/nominatim-proxy?lat=${pt.lat}&lon=${pt.lon}&zoom=10`, { signal: globalSignal });
                 if (geoRes.ok) {
                     const geoData = await geoRes.json();
-                    
-                    if (!geoData.error) {
-                        const isWaterMeta = (geoData.class === 'natural' && geoData.type === 'water') || 
-                                            geoData.class === 'waterway' || geoData.type === 'sea' || 
-                                            (geoData.address && (geoData.address.sea || geoData.address.ocean));
-                        
-                        const dispName = (geoData.display_name || "").toLowerCase();
-                        const isWaterText = ["sea", "ocean", "gulf", "marine", "bay", "strait"].some(t => dispName.includes(t));
 
-                        if (!isWaterMeta && !isWaterText) {
-                            isValidLand = true; 
-                            if (geoData.address) {
-                                regionName = geoData.address.municipality || geoData.address.town || geoData.address.city || "Regional Sector";
-                            }
+                    if (!geoData.error && !isWaterFromGeoData(geoData)) {
+                        isValidLand = true;
+                        if (geoData.address) {
+                            regionName = geoData.address.municipality || geoData.address.town || geoData.address.city || "Regional Sector";
                         }
                     }
                 }
@@ -422,36 +525,45 @@ async function scanVisibleArea() {
     else if (currentZoom >= 10) dedupeDistance = 0.08; 
 
     for (const pt of predictionsList) {
-        const uniqueKey = pt.name && pt.name !== "Regional Sector" 
-            ? `${pt.name}-${pt.threat.disaster_type}` 
-            : `${pt.lat.toFixed(2)}_${pt.lon.toFixed(2)}-${pt.threat.disaster_type}`;
+        if (globalSignal.aborted) return;
 
-        let isDuplicate = plottedMarkersCache.some(cachedPt => cachedPt.uniqueKey === uniqueKey);
-
-        if (!isDuplicate) {
-            let finalLat = pt.lat;
-            let finalLon = pt.lon;
-
-            if (pt.threat.disaster_type.toLowerCase().includes('fire')) {
-                finalLat += 0.035; 
-                finalLon -= 0.020;
-            }
-
-            const spatialOverlap = plottedMarkersCache.some(c => Math.hypot(finalLat - c.lat, finalLon - c.lon) < dedupeDistance);
-            if (spatialOverlap) {
-                finalLon += 0.04;
-            }
-
-            plottedMarkersCache.push({
-                lat: finalLat,
-                lon: finalLon,
-                type: pt.threat.disaster_type,
-                name: pt.name,
-                uniqueKey: uniqueKey
-            });
-
-            plotDynamicMarker(finalLat, finalLon, pt.threat, pt.name);
+        let areaName = null;
+        try {
+            areaName = await resolveAreaName(pt.lat, pt.lon, globalSignal);
+        } catch (err) {
+            if (err.name === 'AbortError') return;
         }
+
+        const areaLabel = areaName || (pt.name && pt.name !== "Regional Sector" ? pt.name : `${pt.lat.toFixed(2)}_${pt.lon.toFixed(2)}`);
+        const uniqueKey = `${areaLabel}-${pt.threat.disaster_type}`;
+
+        const isDuplicate = plottedMarkersCache.some(cachedPt => cachedPt.uniqueKey === uniqueKey);
+        if (isDuplicate) continue;
+
+        let placement = { lat: pt.lat, lon: pt.lon };
+        try {
+            placement = await computePlacement(pt.lat, pt.lon, pt.threat.disaster_type, globalSignal);
+        } catch (err) {
+            if (err.name === 'AbortError') return;
+        }
+
+        let finalLat = placement.lat;
+        let finalLon = placement.lon;
+
+        const spatialOverlap = plottedMarkersCache.some(c => Math.hypot(finalLat - c.lat, finalLon - c.lon) < dedupeDistance);
+        if (spatialOverlap) {
+            finalLon += 0.04;
+        }
+
+        plottedMarkersCache.push({
+            lat: finalLat,
+            lon: finalLon,
+            type: pt.threat.disaster_type,
+            name: pt.name,
+            uniqueKey: uniqueKey
+        });
+
+        plotDynamicMarker(finalLat, finalLon, pt.threat, pt.name);
     }
 }
 
