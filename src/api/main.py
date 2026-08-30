@@ -83,7 +83,9 @@ def scan_bounds(
                     
                     if pred_result and "predictions" in pred_result:
                         for p in pred_result["predictions"]:
-                            if float(p.get("probability_percentage", 0)) >= 30:
+                            raw_prob = str(p.get("probability_percentage", "0")).replace("%", "")
+                            
+                            if float(raw_prob) >= 30.0:
                                 results.append({
                                     "lat": lat,
                                     "lon": lon,
