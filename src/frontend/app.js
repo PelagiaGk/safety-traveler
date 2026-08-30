@@ -6,6 +6,8 @@ let plottedMarkersCache = [];
 window.isMapScanning = false;
 window.currentScanController = null;
 
+const DEDUPE_RADIUS_DEG = 0.4; 
+
 document.addEventListener("DOMContentLoaded", () => {
     if (map !== undefined && map !== null) {
         map.remove();
@@ -259,24 +261,20 @@ async function scanVisibleArea() {
                 data.results.sort((a, b) => parseFloat(b.threat.probability_percentage) - parseFloat(a.threat.probability_percentage));
 
                 data.results.forEach(item => {
-                    const uniqueKey = `${item.lat.toFixed(3)}-${item.lon.toFixed(3)}-${item.threat.disaster_type}`;
                     
-                    if (!plottedMarkersCache.some(c => c.uniqueKey === uniqueKey)) {
+                    const isDuplicate = plottedMarkersCache.some(c => 
+                        c.type === item.threat.disaster_type && 
+                        Math.hypot(c.lat - item.lat, c.lon - item.lon) < DEDUPE_RADIUS_DEG
+                    );
+                    
+                    if (!isDuplicate) {
                         let finalLat = item.lat;
                         let finalLon = item.lon;
-
-                        if (item.threat.disaster_type.toLowerCase().includes('fire')) {
-                            let hash = 0;
-                            for(let i = 0; i < (item.locality || item.region).length; i++) hash += (item.locality || item.region).charCodeAt(i);
-                            const offset = 0.015; 
-                            finalLat += (hash % 2 === 0 ? offset : -offset);
-                            finalLon += (hash % 3 === 0 ? offset : -offset);
-                        }
 
                         const visualOverlap = plottedMarkersCache.some(c => Math.hypot(finalLat - c.lat, finalLon - c.lon) < 0.02);
                         if (visualOverlap) finalLon += 0.025;
 
-                        plottedMarkersCache.push({ lat: finalLat, lon: finalLon, uniqueKey: uniqueKey, type: item.threat.disaster_type });
+                        plottedMarkersCache.push({ lat: finalLat, lon: finalLon, type: item.threat.disaster_type });
                         plotDynamicMarker(finalLat, finalLon, item.threat, item.locality !== "Unknown" ? item.locality : item.region);
                     }
                 });
@@ -293,10 +291,20 @@ function plotDynamicMarker(lat, lon, topThreat, cityName) {
     let risk = probability >= 65 ? 'high' : (probability >= 40 ? 'medium' : 'low');
     const emojis = { "Wildfire": "🔥", "Flood": "🌊", "Storm": "🌪️", "Heatwave": "☀️", "Earthquake": "🌋", "Drought": "🏜️" };
     const emoji = emojis[topThreat.disaster_type] || '⚠️';
-    const borderColor = risk === 'high' ? '#ef4444' : risk === 'medium' ? '#f59e0b' : '#10b981';
+    
+    const riskColor = risk === 'high' ? '#ef4444' : risk === 'medium' ? '#f59e0b' : '#10b981';
+
+    L.circle([lat, lon], {
+        color: riskColor,
+        fillColor: riskColor,
+        fillOpacity: 0.15,
+        radius: 30000, 
+        weight: 1,
+        interactive: false 
+    }).addTo(markersClusterGroup);
 
     const icon = L.divIcon({
-        html: `<div class="marker-bubble" style="border-color: ${borderColor};">${emoji}</div>`,
+        html: `<div class="marker-bubble" style="border-color: ${riskColor};">${emoji}</div>`,
         className: 'custom-emoji-icon-container',
         iconSize: [32, 32],
         iconAnchor: [16, 16]

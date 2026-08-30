@@ -56,6 +56,21 @@ body, button, input, select, textarea,
     z-index: 1000;
 }
 
+.season-dropdown {
+    background-color: transparent;
+    border: none;
+    color: #4b5563; 
+    font-family: inherit;
+    font-size: 0.95rem;
+    cursor: pointer;
+    outline: none;
+    padding: 0 10px;
+}
+
+.season-dropdown:focus {
+    color: #111827;
+}
+
 .search-container, .region-indicator {
     pointer-events: auto;
     background: rgba(255, 255, 255, 0.9);

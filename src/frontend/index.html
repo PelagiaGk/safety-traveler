@@ -26,9 +26,15 @@
         <div class="ui-layer">
             <div class="top-nav-bar">
                 <div class="search-container">
-                    <span class="search-icon globe">🌍</span>
-                    <input type="text" id="searchInput" placeholder="Search...">
                     <span class="search-icon glass">🔍</span>
+                    <input type="text" id="searchInput" placeholder="Search...">
+                    <select id="season-filter" class="season-dropdown" aria-label="Select Season to view predictive map">
+                        <option value="">Current Season</option>
+                        <option value="Spring">Spring</option>
+                        <option value="Summer">Summer</option>
+                        <option value="Autumn">Autumn</option>
+                        <option value="Winter">Winter</option>
+                    </select>
                 </div>
         
                 <div class="region-indicator">
