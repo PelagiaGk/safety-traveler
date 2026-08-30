@@ -73,6 +73,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (data.predictions && data.predictions.length > 0) {
                     const validThreats = data.predictions.filter(p => parseFloat(p.probability_percentage) >= 30);
                     if (validThreats.length > 0) {
+                        
+                        if (data.resolved_lat && data.resolved_lon) {
+                            popup.setLatLng([data.resolved_lat, data.resolved_lon]);
+                            if (clickName === "Regional Sector" && data.resolved_region) {
+                                clickName = data.resolved_region;
+                            }
+                        }
+
                         let combinedHTML = `<div class="multi-threat-scroll" style="max-height: 280px; overflow-y: auto; padding-right: 5px;">`;
                         validThreats.forEach(threat => {
                             threat.locality = clickName;
@@ -149,7 +157,7 @@ function getCompassDirection(lat, lon, geoData) {
 }
 
 function isWaterFromGeoData(geoData) {
-    if (!geoData || geoData.error) return false;
+    if (!geoData || geoData.error) return true;
     
     const type = (geoData.addresstype || geoData.type || "").toLowerCase();
     if (['city', 'town', 'village', 'municipality', 'county', 'state'].includes(type)) return false;
@@ -251,7 +259,7 @@ async function scanVisibleArea() {
                 data.results.sort((a, b) => parseFloat(b.threat.probability_percentage) - parseFloat(a.threat.probability_percentage));
 
                 data.results.forEach(item => {
-                    const uniqueKey = `${item.region}-${item.threat.disaster_type}`;
+                    const uniqueKey = `${item.lat.toFixed(3)}-${item.lon.toFixed(3)}-${item.threat.disaster_type}`;
                     
                     if (!plottedMarkersCache.some(c => c.uniqueKey === uniqueKey)) {
                         let finalLat = item.lat;
@@ -259,7 +267,7 @@ async function scanVisibleArea() {
 
                         if (item.threat.disaster_type.toLowerCase().includes('fire')) {
                             let hash = 0;
-                            for(let i = 0; i < item.region.length; i++) hash += item.region.charCodeAt(i);
+                            for(let i = 0; i < (item.locality || item.region).length; i++) hash += (item.locality || item.region).charCodeAt(i);
                             const offset = 0.015; 
                             finalLat += (hash % 2 === 0 ? offset : -offset);
                             finalLon += (hash % 3 === 0 ? offset : -offset);
@@ -269,7 +277,7 @@ async function scanVisibleArea() {
                         if (visualOverlap) finalLon += 0.025;
 
                         plottedMarkersCache.push({ lat: finalLat, lon: finalLon, uniqueKey: uniqueKey, type: item.threat.disaster_type });
-                        plotDynamicMarker(finalLat, finalLon, item.threat, item.region);
+                        plotDynamicMarker(finalLat, finalLon, item.threat, item.locality !== "Unknown" ? item.locality : item.region);
                     }
                 });
             }
