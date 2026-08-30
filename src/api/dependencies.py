@@ -1,11 +1,16 @@
 """Application dependencies and in-memory asset singletons."""
 import json
+import sys
 from functools import lru_cache
 from pathlib import Path
 from typing import Dict, Any
-from src.models.inference import DisasterPredictor
 
 BASE_DIR = Path(__file__).resolve().parents[2]
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
+
+from src.models.inference import DisasterPredictor
+
 GEOJSON_PATH = BASE_DIR / "data" / "processed" / "regional_disaster_index.geojson"
 
 @lru_cache(maxsize=1)
