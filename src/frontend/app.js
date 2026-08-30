@@ -38,6 +38,33 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    async function loadInitialData() {
+        try {
+            const res = await fetch('/api/v1/default-view');
+            if (res.ok) {
+                const data = await res.json();
+                if (data.active_seasonal_features && data.active_seasonal_features.features) {
+                    data.active_seasonal_features.features.forEach(feat => {
+                        const props = feat.properties;
+                        const geom = feat.geometry;
+                        if (geom && geom.coordinates && props.risk_level !== "Low") {
+                            const threatData = {
+                                disaster_type: props.disaster_type || "Wildfire",
+                                probability_percentage: props.probability || 85,
+                                primary_reason: props.description || "Seasonal risk profile matches historical precedents.",
+                                dynamic_precautions: ["Monitor local safety warnings."]
+                            };
+                            plotDynamicMarker(geom.coordinates[1], geom.coordinates[0], threatData, props.region);
+                        }
+                    });
+                }
+            }
+        } catch (err) {
+            console.warn("Failed to load default view.", err);
+        }
+        scanVisibleArea(); 
+    }
+
     map.on('click', async (e) => {
         if (isMarkerClick) { isMarkerClick = false; return; }
 
@@ -106,7 +133,7 @@ document.addEventListener("DOMContentLoaded", () => {
         scanTimeout = setTimeout(scanVisibleArea, 800); 
     });
 
-    scanVisibleArea();
+    loadInitialData();
 });
 
 function getCurrentSeason() {
@@ -254,7 +281,7 @@ async function scanVisibleArea() {
     
     const mlPromises = gridPoints.map(async (pt) => {
         try {
-            const url = `/api/v1/predict?lat=${pt.lat}&lon=${pt.lon}&season=${season}`;
+            const url = `/api/v1/predict?lat=${pt.lat}&lon=${pt.lon}&region=${encodeURIComponent("Unknown")}&season=${season}`;
             const res = await fetch(url, { signal: globalSignal });
             if (res.ok) {
                 const data = await res.json();
@@ -282,7 +309,6 @@ async function scanVisibleArea() {
 
     for (const pt of predictionsList) {
         const uniqueKey = `${pt.name}-${pt.threat.disaster_type}`;
-        
         const isDuplicate = plottedMarkersCache.some(cachedPt => cachedPt.uniqueKey === uniqueKey);
         
         if (!isDuplicate) {

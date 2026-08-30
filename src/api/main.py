@@ -40,7 +40,7 @@ def get_current_season() -> str:
     if month in [9, 10, 11]: return SeasonEnum.AUTUMN.value
     return SeasonEnum.WINTER.value
 
-def get_nearest_region(lat: float, lon: float, features: List[Dict]) -> Optional[Dict]:
+def get_nearest_region(lat: float, lon: float, features: List[Dict], max_dist: float = 0.15) -> Optional[Dict]:
     min_dist = float('inf')
     nearest_feature = None
     for feature in features:
@@ -49,7 +49,7 @@ def get_nearest_region(lat: float, lon: float, features: List[Dict]) -> Optional
             coords = geom.get("coordinates", [0, 0])
             f_lon, f_lat = coords[0], coords[1]
             dist = math.hypot(f_lat - lat, f_lon - lon)
-            if dist < min_dist:
+            if dist < min_dist and dist <= max_dist:
                 min_dist = dist
                 nearest_feature = feature
     return nearest_feature
@@ -77,7 +77,6 @@ def predict_risk(
 ):
     active_season = season if season else get_current_season()
     target_region = region if region else "Unknown"
-    
     resolved_lat, resolved_lon = lat, lon
 
     if target_region and re.search(r'\b(sea|ocean|marine|gulf|bay|strait|lake|water)\b', target_region, re.IGNORECASE):
@@ -85,15 +84,18 @@ def predict_risk(
 
     if lat is not None and lon is not None:
         nearest_feat = get_nearest_region(lat, lon, data.get("features", []))
-        if nearest_feat:
-            props = nearest_feat.get("properties", {})
-            geom = nearest_feat.get("geometry", {})
+        
+        if not nearest_feat:
+            return {"predictions": []}
             
-            if props.get("region"):
-                target_region = props.get("region")
-            if geom.get("type") == "Point":
-                coords = geom.get("coordinates", [0, 0])
-                resolved_lon, resolved_lat = coords[0], coords[1]
+        props = nearest_feat.get("properties", {})
+        geom = nearest_feat.get("geometry", {})
+        
+        if props.get("region"):
+            target_region = props.get("region")
+        if geom.get("type") == "Point":
+            coords = geom.get("coordinates", [0, 0])
+            resolved_lon, resolved_lat = coords[0], coords[1]
 
     result = predictor.predict(region=target_region, season=active_season, lat=resolved_lat, lon=resolved_lon)
     
