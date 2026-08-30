@@ -58,13 +58,16 @@ body, button, input, select, textarea,
 
 .season-dropdown {
     background-color: transparent;
-    border: none;
     color: #4b5563; 
     font-family: inherit;
-    font-size: 0.95rem;
+    font-weight: 500;
+    font-size: 14px;
     cursor: pointer;
     outline: none;
-    padding: 0 10px;
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    border-radius: 30px;
+    padding: 10px 18px;
 }
 
 .season-dropdown:focus {
@@ -109,7 +112,6 @@ body, button, input, select, textarea,
     width: 220px;
 }
 
-.search-icon.globe { font-size: 16px; }
 .search-icon.glass { font-size: 14px; opacity: 0.6; cursor: pointer; }
 .pin-icon { margin-right: 6px; }
 

@@ -261,7 +261,6 @@ async function scanVisibleArea() {
                 data.results.sort((a, b) => parseFloat(b.threat.probability_percentage) - parseFloat(a.threat.probability_percentage));
 
                 data.results.forEach(item => {
-                    
                     const isDuplicate = plottedMarkersCache.some(c => 
                         c.type === item.threat.disaster_type && 
                         Math.hypot(c.lat - item.lat, c.lon - item.lon) < DEDUPE_RADIUS_DEG
@@ -271,8 +270,12 @@ async function scanVisibleArea() {
                         let finalLat = item.lat;
                         let finalLon = item.lon;
 
-                        const visualOverlap = plottedMarkersCache.some(c => Math.hypot(finalLat - c.lat, finalLon - c.lon) < 0.02);
-                        if (visualOverlap) finalLon += 0.025;
+                        let overlapCount = plottedMarkersCache.filter(c => Math.hypot(finalLat - c.lat, finalLon - c.lon) < 0.02).length;
+                        if (overlapCount > 0) {
+                            const angle = overlapCount * (Math.PI / 3);
+                            finalLat += 0.03 * Math.cos(angle);
+                            finalLon += 0.03 * Math.sin(angle);
+                        }
 
                         plottedMarkersCache.push({ lat: finalLat, lon: finalLon, type: item.threat.disaster_type });
                         plotDynamicMarker(finalLat, finalLon, item.threat, item.locality !== "Unknown" ? item.locality : item.region);
