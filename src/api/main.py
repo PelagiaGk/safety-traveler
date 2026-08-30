@@ -75,7 +75,7 @@ def scan_bounds(
 ):
     active_season = season if season else get_current_season()
     results = []
-    seen_locations = set()
+    seen_grid_cells = set()
 
     for feature in data.get("features", []):
         geom = feature.get("geometry", {})
@@ -86,13 +86,15 @@ def scan_bounds(
             lon, lat = coords[0], coords[1]
             
             if s <= lat <= n and w <= lon <= e:
-                locality = props.get("locality", "Unknown")
                 
-                dedupe_key = f"{locality}-{round(lat, 2)}-{round(lon, 2)}"
+                grid_lat = round(lat, 1)
+                grid_lon = round(lon, 1)
+                grid_key = f"{grid_lat}-{grid_lon}"
                 
-                if dedupe_key not in seen_locations:
-                    seen_locations.add(dedupe_key)
+                if grid_key not in seen_grid_cells:
+                    seen_grid_cells.add(grid_key)
                     
+                    locality = props.get("locality", "Unknown")
                     region_name = props.get("region", "Unknown")
                     country_name = props.get("country", "Unknown")
                     
