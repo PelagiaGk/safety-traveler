@@ -1,6 +1,7 @@
 """FastAPI Main Application."""
 import sys
 import math
+import re
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
@@ -33,7 +34,6 @@ app.add_middleware(
 )
 
 def get_current_season() -> str:
-    """Determines meteorological season from current UTC month."""
     month = datetime.now(timezone.utc).month
     if month in [3, 4, 5]: return SeasonEnum.SPRING.value
     if month in [6, 7, 8]: return SeasonEnum.SUMMER.value
@@ -119,15 +119,19 @@ def predict_risk(
     season: Optional[str] = None,
     lat: Optional[float] = None,
     lon: Optional[float] = None,
-    predictor: DisasterPredictor = Depends(get_predictor)
+    predictor: DisasterPredictor = Depends(get_predictor),
+    data: Dict[str, Any] = Depends(get_disaster_data)
 ):
     active_season = season if season else get_current_season()
     target_region = region if region else "Unknown"
 
-    if target_region:
-        tr_lower = target_region.lower()
-        if any(term in tr_lower for term in ["sea", "ocean", "marine", "gulf", "bay", "strait", "water"]):
-            return {"predictions": []}
+    if target_region and re.search(r'\b(sea|ocean|marine|gulf|bay|strait|lake|water)\b', target_region, re.IGNORECASE):
+        return {"predictions": []}
+
+    if lat is not None and lon is not None:
+        nearest = get_nearest_region(lat, lon, data.get("features", []))
+        if nearest and nearest.get("region"):
+            target_region = nearest.get("region")
 
     return predictor.predict(region=target_region, season=active_season, lat=lat, lon=lon)
 

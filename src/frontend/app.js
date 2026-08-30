@@ -6,6 +6,8 @@ let plottedMarkersCache = [];
 window.isMapScanning = false;
 window.currentScanController = null;
 
+const WILDFIRE_JITTER_DEG = 0.01; 
+
 document.addEventListener("DOMContentLoaded", () => {
     if (map !== undefined && map !== null) {
         map.remove();
@@ -62,7 +64,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
                 
                 if (!geoData.error && geoData.address) {
-                    clickName = geoData.address.municipality || geoData.address.town || geoData.address.city || geoData.address.county || "Regional Sector";
+                    clickName = geoData.address.municipality || geoData.address.town || geoData.address.city || geoData.address.county || geoData.address.region || "Regional Sector";
                 }
             }
 
@@ -119,8 +121,8 @@ function getCurrentSeason() {
 
 function getCompassDirection(lat, lon, geoData) {
     if (!geoData || !geoData.boundingbox || geoData.boundingbox.length < 4) return "";
-    const type = geoData.addresstype || geoData.type || "";
-    if (['city', 'town', 'village', 'municipality'].includes(type.toLowerCase())) return "";
+    const type = (geoData.addresstype || geoData.type || "").toLowerCase();
+    if (['city', 'town', 'village', 'municipality'].includes(type)) return "";
 
     const targetLat = parseFloat(lat);
     const targetLon = parseFloat(lon);
@@ -259,8 +261,54 @@ async function scanVisibleArea() {
             }
         }
     } catch (err) {
-        console.warn("Overpass unavailble. Falling back.");
+        console.warn("Overpass unavailable. Using fail-open logic.");
     }
+
+    if (rawPoints.length === 0) {
+        const center = bounds.getCenter();
+        const latOff = (bounds.getNorth() - bounds.getSouth()) * 0.25;
+        const lonOff = (bounds.getEast() - bounds.getWest()) * 0.25;
+        
+        const fallbackPoints = [
+            { lat: center.lat, lon: center.lng },
+            { lat: center.lat + latOff, lon: center.lng - lonOff }, 
+            { lat: center.lat + latOff, lon: center.lng + lonOff }, 
+            { lat: center.lat - latOff, lon: center.lng - lonOff }, 
+            { lat: center.lat - latOff, lon: center.lng + lonOff }
+        ];
+
+        for (const pt of fallbackPoints) {
+            if (globalSignal.aborted) return;
+            let isValidLand = true; 
+            let regionName = "Regional Sector"; 
+
+            try {
+                const geoRes = await fetch(`/api/v1/nominatim-proxy?lat=${pt.lat}&lon=${pt.lon}&zoom=10&accept-language=en`, { signal: globalSignal });
+                if (geoRes.ok) {
+                    const geoData = await geoRes.json();
+                    if (!geoData.error) {
+                        if (isWaterFromGeoData(geoData)) {
+                            isValidLand = false; 
+                        } else if (geoData.address) {
+                            regionName = geoData.address.municipality || geoData.address.town || geoData.address.city || geoData.address.county || "Regional Sector";
+                        }
+                    }
+                }
+            } catch (err) {
+            }
+
+            if (isValidLand) {
+                rawPoints.push({ lat: pt.lat, lon: pt.lon, name: regionName });
+            }
+
+            await new Promise(resolve => {
+                const timer = setTimeout(resolve, 800);
+                globalSignal.addEventListener('abort', () => { clearTimeout(timer); resolve(); });
+            });
+        }
+    }
+
+    if (globalSignal.aborted) return;
 
     let predictionsList = [];
     const mlPromises = rawPoints.map(async (pt) => {
@@ -285,7 +333,6 @@ async function scanVisibleArea() {
     if (globalSignal.aborted) return;
 
     predictionsList.sort((a, b) => parseFloat(b.threat.probability_percentage) - parseFloat(a.threat.probability_percentage));
-
     const dedupeDistance = currentZoom < 7 ? 0.6 : (currentZoom < 10 ? 0.3 : 0.1); 
 
     for (const pt of predictionsList) {
@@ -297,12 +344,15 @@ async function scanVisibleArea() {
             let finalLon = pt.lon;
 
             if (pt.threat.disaster_type.toLowerCase().includes('fire')) {
-                finalLat += 0.005;
-                finalLon -= 0.005;
+                const hash = (Math.abs(pt.lat) * 100 + Math.abs(pt.lon) * 100) % 4;
+                if (hash < 1) { finalLat += WILDFIRE_JITTER_DEG; finalLon += WILDFIRE_JITTER_DEG; }
+                else if (hash < 2) { finalLat += WILDFIRE_JITTER_DEG; finalLon -= WILDFIRE_JITTER_DEG; }
+                else if (hash < 3) { finalLat -= WILDFIRE_JITTER_DEG; finalLon += WILDFIRE_JITTER_DEG; }
+                else { finalLat -= WILDFIRE_JITTER_DEG; finalLon -= WILDFIRE_JITTER_DEG; }
             }
 
             const spatialOverlap = plottedMarkersCache.some(c => Math.hypot(finalLat - c.lat, finalLon - c.lon) < dedupeDistance && c.type === pt.threat.disaster_type);
-            if (spatialOverlap) continue;
+            if (spatialOverlap) continue; 
 
             const visualOverlap = plottedMarkersCache.some(c => Math.hypot(finalLat - c.lat, finalLon - c.lon) < 0.03);
             if (visualOverlap) finalLon += 0.04;
