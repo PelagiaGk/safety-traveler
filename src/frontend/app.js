@@ -38,33 +38,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    async function loadInitialData() {
-        try {
-            const res = await fetch('/api/v1/default-view');
-            if (res.ok) {
-                const data = await res.json();
-                if (data.active_seasonal_features && data.active_seasonal_features.features) {
-                    data.active_seasonal_features.features.forEach(feat => {
-                        const props = feat.properties;
-                        const geom = feat.geometry;
-                        if (geom && geom.coordinates && props.risk_level !== "Low") {
-                            const threatData = {
-                                disaster_type: props.disaster_type || "Wildfire",
-                                probability_percentage: props.probability || 85,
-                                primary_reason: props.description || "Seasonal risk profile matches historical precedents.",
-                                dynamic_precautions: ["Monitor local safety warnings."]
-                            };
-                            plotDynamicMarker(geom.coordinates[1], geom.coordinates[0], threatData, props.region);
-                        }
-                    });
-                }
-            }
-        } catch (err) {
-            console.warn("Failed to load default view.", err);
-        }
-        scanVisibleArea(); 
-    }
-
     map.on('click', async (e) => {
         if (isMarkerClick) { isMarkerClick = false; return; }
 
@@ -125,15 +98,15 @@ document.addEventListener("DOMContentLoaded", () => {
             const center = map.getBounds().getCenter();
             if (typeof updateRegionMeta === 'function') updateRegionMeta(center.lat, center.lng);
             scanVisibleArea();
-        }, 800); 
+        }, 600); 
     });
     
     map.on('zoomend', () => {
         clearTimeout(scanTimeout);
-        scanTimeout = setTimeout(scanVisibleArea, 800); 
+        scanTimeout = setTimeout(scanVisibleArea, 600); 
     });
 
-    loadInitialData();
+    scanVisibleArea();
 });
 
 function getCurrentSeason() {
@@ -257,75 +230,51 @@ async function updateRegionMeta(lat, lon) {
 async function scanVisibleArea() {
     if (window.currentScanController) window.currentScanController.abort();
     window.currentScanController = new AbortController();
-    const globalSignal = window.currentScanController.signal;
+    const signal = window.currentScanController.signal;
 
     const bounds = map.getBounds();
     const season = document.getElementById('season-filter')?.value || getCurrentSeason();
     
-    const s = bounds.getSouth();
-    const w = bounds.getWest();
     const n = bounds.getNorth();
+    const s = bounds.getSouth();
     const e = bounds.getEast();
-    const latStep = (n - s) / 3;
-    const lonStep = (e - w) / 3;
-    
-    let gridPoints = [];
-    for (let i = 1; i <= 2; i++) {
-        for (let j = 1; j <= 2; j++) {
-            gridPoints.push({ lat: s + (latStep * i), lon: w + (lonStep * j) });
-        }
-    }
-    gridPoints.push({ lat: bounds.getCenter().lat, lon: bounds.getCenter().lng });
+    const w = bounds.getWest();
 
-    let predictionsList = [];
-    
-    const mlPromises = gridPoints.map(async (pt) => {
-        try {
-            const url = `/api/v1/predict?lat=${pt.lat}&lon=${pt.lon}&region=${encodeURIComponent("Unknown")}&season=${season}`;
-            const res = await fetch(url, { signal: globalSignal });
-            if (res.ok) {
-                const data = await res.json();
-                if (data.predictions && data.predictions.length > 0) {
-                    data.predictions.forEach(pred => {
-                        if (parseFloat(pred.probability_percentage) >= 30) {
-                            predictionsList.push({ 
-                                lat: data.resolved_lat || pt.lat, 
-                                lon: data.resolved_lon || pt.lon, 
-                                name: data.resolved_region || "Regional Sector", 
-                                threat: pred 
-                            });
-                        }
-                    });
-                }
-            }
-        } catch (err) {
-        }
-    });
-
-    await Promise.all(mlPromises);
-    if (globalSignal.aborted) return;
-
-    predictionsList.sort((a, b) => parseFloat(b.threat.probability_percentage) - parseFloat(a.threat.probability_percentage));
-
-    for (const pt of predictionsList) {
-        const uniqueKey = `${pt.name}-${pt.threat.disaster_type}`;
-        const isDuplicate = plottedMarkersCache.some(cachedPt => cachedPt.uniqueKey === uniqueKey);
+    try {
+        const url = `/api/v1/scan-bounds?n=${n}&s=${s}&e=${e}&w=${w}&season=${season}`;
+        const res = await fetch(url, { signal });
         
-        if (!isDuplicate) {
-            let finalLat = pt.lat;
-            let finalLon = pt.lon;
+        if (res.ok) {
+            const data = await res.json();
+            if (data.results && data.results.length > 0) {
+                
+                data.results.sort((a, b) => parseFloat(b.threat.probability_percentage) - parseFloat(a.threat.probability_percentage));
 
-            if (pt.threat.disaster_type.toLowerCase().includes('fire')) {
-                finalLat += 0.008; 
-                finalLon -= 0.008;
+                data.results.forEach(item => {
+                    const uniqueKey = `${item.region}-${item.threat.disaster_type}`;
+                    
+                    if (!plottedMarkersCache.some(c => c.uniqueKey === uniqueKey)) {
+                        let finalLat = item.lat;
+                        let finalLon = item.lon;
+
+                        if (item.threat.disaster_type.toLowerCase().includes('fire')) {
+                            let hash = 0;
+                            for(let i = 0; i < item.region.length; i++) hash += item.region.charCodeAt(i);
+                            const offset = 0.015; 
+                            finalLat += (hash % 2 === 0 ? offset : -offset);
+                            finalLon += (hash % 3 === 0 ? offset : -offset);
+                        }
+
+                        const visualOverlap = plottedMarkersCache.some(c => Math.hypot(finalLat - c.lat, finalLon - c.lon) < 0.02);
+                        if (visualOverlap) finalLon += 0.025;
+
+                        plottedMarkersCache.push({ lat: finalLat, lon: finalLon, uniqueKey: uniqueKey, type: item.threat.disaster_type });
+                        plotDynamicMarker(finalLat, finalLon, item.threat, item.region);
+                    }
+                });
             }
-
-            const visualOverlap = plottedMarkersCache.some(c => Math.hypot(finalLat - c.lat, finalLon - c.lon) < 0.03);
-            if (visualOverlap) finalLon += 0.04;
-
-            plottedMarkersCache.push({ lat: finalLat, lon: finalLon, type: pt.threat.disaster_type, name: pt.name, uniqueKey: uniqueKey });
-            plotDynamicMarker(finalLat, finalLon, pt.threat, pt.name);
         }
+    } catch (err) {
     }
 }
 

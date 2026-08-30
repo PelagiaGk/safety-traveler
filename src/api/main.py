@@ -40,20 +40,6 @@ def get_current_season() -> str:
     if month in [9, 10, 11]: return SeasonEnum.AUTUMN.value
     return SeasonEnum.WINTER.value
 
-def get_nearest_region(lat: float, lon: float, features: List[Dict], max_dist: float = 0.15) -> Optional[Dict]:
-    min_dist = float('inf')
-    nearest_feature = None
-    for feature in features:
-        geom = feature.get("geometry", {})
-        if geom.get("type") == "Point":
-            coords = geom.get("coordinates", [0, 0])
-            f_lon, f_lat = coords[0], coords[1]
-            dist = math.hypot(f_lat - lat, f_lon - lon)
-            if dist < min_dist and dist <= max_dist:
-                min_dist = dist
-                nearest_feature = feature
-    return nearest_feature
-
 @app.get("/api/v1/nominatim-proxy")
 async def nominatim_proxy(lat: float, lon: float, zoom: int = 10, accept_language: str = "en"):
     url = "https://nominatim.openstreetmap.org/reverse"
@@ -66,65 +52,62 @@ async def nominatim_proxy(lat: float, lon: float, zoom: int = 10, accept_languag
         except Exception:
             return {"error": "Failed", "address": {}}
 
+@app.get("/api/v1/scan-bounds")
+def scan_bounds(
+    n: float, s: float, e: float, w: float,
+    season: Optional[str] = None,
+    predictor: DisasterPredictor = Depends(get_predictor),
+    data: Dict[str, Any] = Depends(get_disaster_data)
+):
+    active_season = season if season else get_current_season()
+    results = []
+    seen_regions = set()
+
+    for feature in data.get("features", []):
+        geom = feature.get("geometry", {})
+        props = feature.get("properties", {})
+        
+        if geom.get("type") == "Point":
+            coords = geom.get("coordinates", [0, 0])
+            lon, lat = coords[0], coords[1]
+            
+            if s <= lat <= n and w <= lon <= e:
+                region_name = props.get("region", "Unknown")
+                country_name = props.get("country", "Unknown")
+                
+                dedupe_key = f"{region_name}-{country_name}"
+                if dedupe_key not in seen_regions:
+                    seen_regions.add(dedupe_key)
+                    
+                    pred_result = predictor.predict(region=region_name, season=active_season, lat=lat, lon=lon)
+                    
+                    if pred_result and "predictions" in pred_result:
+                        for p in pred_result["predictions"]:
+                            if float(p.get("probability_percentage", 0)) >= 30:
+                                results.append({
+                                    "lat": lat,
+                                    "lon": lon,
+                                    "region": region_name,
+                                    "country": country_name,
+                                    "threat": p
+                                })
+    return {"results": results}
+
 @app.get("/api/v1/predict")
 def predict_risk(
     region: Optional[str] = None,
     season: Optional[str] = None,
     lat: Optional[float] = None,
     lon: Optional[float] = None,
-    predictor: DisasterPredictor = Depends(get_predictor),
-    data: Dict[str, Any] = Depends(get_disaster_data)
+    predictor: DisasterPredictor = Depends(get_predictor)
 ):
     active_season = season if season else get_current_season()
     target_region = region if region else "Unknown"
-    resolved_lat, resolved_lon = lat, lon
 
     if target_region and re.search(r'\b(sea|ocean|marine|gulf|bay|strait|lake|water)\b', target_region, re.IGNORECASE):
         return {"predictions": []}
 
-    if lat is not None and lon is not None:
-        nearest_feat = get_nearest_region(lat, lon, data.get("features", []))
-        
-        if not nearest_feat:
-            return {"predictions": []}
-            
-        props = nearest_feat.get("properties", {})
-        geom = nearest_feat.get("geometry", {})
-        
-        if props.get("region"):
-            target_region = props.get("region")
-        if geom.get("type") == "Point":
-            coords = geom.get("coordinates", [0, 0])
-            resolved_lon, resolved_lat = coords[0], coords[1]
-
-    result = predictor.predict(region=target_region, season=active_season, lat=resolved_lat, lon=resolved_lon)
-    
-    if isinstance(result, dict):
-        result["resolved_lat"] = resolved_lat
-        result["resolved_lon"] = resolved_lon
-        result["resolved_region"] = target_region
-
-    return result
-
-@app.get("/api/v1/default-view", tags=["Default View"])
-def get_default_view(
-    lat: Optional[float] = Query(None),
-    lon: Optional[float] = Query(None),
-    data: Dict[str, Any] = Depends(get_disaster_data)
-):
-    current_season = get_current_season()
-    features = data.get("features", [])
-    center_lat, center_lon = 39.0, 22.0
-    matched_country = "Greece"
-    
-    if lat is not None and lon is not None:
-        nearest = get_nearest_region(lat, lon, features)
-        if nearest:
-            matched_country = nearest.get("properties", {}).get("country", matched_country)
-            center_lat, center_lon = lat, lon
-
-    active_features = [f for f in features if f["properties"].get("season", "").lower() == current_season.lower() and f["properties"].get("country", "") == matched_country]
-    return {"current_season": current_season, "default_center": {"lat": center_lat, "lon": center_lon, "zoom": 6}, "active_seasonal_features": {"type": "FeatureCollection", "features": active_features}}
+    return predictor.predict(region=target_region, season=active_season, lat=lat, lon=lon)
 
 @app.get("/")
 def serve_frontend():
