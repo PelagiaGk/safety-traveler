@@ -38,7 +38,8 @@ def safe_get_disaster_type(raw_val: str):
 
 def build_geojson_features(df: pd.DataFrame) -> Dict[str, Any]:
     features: List[Dict[str, Any]] = []
-    sub_region_counts = df.groupby(["country", "region", "sub_region", "season"]).size().to_dict()
+    
+    sub_region_counts = df.groupby(["country", "region", "locality", "season"]).size().to_dict()
 
     for _, row in df.iterrows():
         d_type = safe_get_disaster_type(row["disaster_type"])
@@ -46,12 +47,12 @@ def build_geojson_features(df: pd.DataFrame) -> Dict[str, Any]:
             continue
 
         emoji = DISASTER_EMOJIS.get(d_type, "⚠️")
-        key = (row["country"], row["region"], row["sub_region"], row["season"])
+        key = (row["country"], row["region"], row["locality"], row["season"])
         total_sub_region_seasonal_incidents = sub_region_counts.get(key, 1)
 
         type_count = len(df[
             (df["country"] == row["country"]) &
-            (df["sub_region"] == row["sub_region"]) &
+            (df["locality"] == row["locality"]) &
             (df["season"] == row["season"]) &
             (df["disaster_type"] == row["disaster_type"])
         ])
@@ -66,16 +67,15 @@ def build_geojson_features(df: pd.DataFrame) -> Dict[str, Any]:
                 "incident_id": row["incident_id"],
                 "country": row["country"],
                 "region": row["region"],
-                "sub_region": row["sub_region"],
                 "locality": row["locality"],
                 "season": row["season"],
                 "disaster_type": d_type.value,
                 "emoji": emoji,
                 "risk_level": risk_tier.value,
                 "statistical_probability": f"{probability_percentage}%",
-                "primary_reason": row["primary_reason"],
-                "static_safety_tips": row["static_safety_tips"],
-                "dynamic_precautions": row["dynamic_precautions"],
+                "primary_reason": row.get("primary_reason", ""),
+                "static_safety_tips": row.get("static_safety_tips", []),
+                "dynamic_precautions": row.get("dynamic_precautions", []),
             }
         })
 
@@ -89,7 +89,7 @@ def run_pipeline() -> None:
     with open(PROCESSED_DATA_PATH, "w", encoding="utf-8") as f:
         json.dump(geojson_data, f, indent=2, ensure_ascii=False)
 
-    summary = df.groupby(["country", "region", "sub_region", "season", "disaster_type"]).size().reset_index(name="incident_count")
+    summary = df.groupby(["country", "region", "locality", "season", "disaster_type"]).size().reset_index(name="incident_count")
     summary.to_json(SUMMARY_STATS_PATH, orient="records", indent=2)
 
     print("Pipeline executed successfully.")

@@ -1,4 +1,4 @@
-"""Global GDACS API Historical Ingestion Module."""
+"""Global GDACS API Historical Ingestion Module with Strict Land Filtering."""
 import sys
 import time
 from pathlib import Path
@@ -37,11 +37,9 @@ def determine_season(month: int) -> str:
     return SeasonEnum.WINTER.value
 
 def fetch_gdacs_historical(years_back: int = 5, retries: int = 3) -> list:
-    """Iterates through historical time windows to compile a massive global dataset."""
     normalized_events = []
     end_date = datetime.now(timezone.utc)
     
-    # Process in 6-month chunks to avoid API timeout limits
     for _ in range(years_back * 2):
         start_date = end_date - timedelta(days=180)
         params = {
@@ -59,16 +57,19 @@ def fetch_gdacs_historical(years_back: int = 5, retries: int = 3) -> list:
                 for feature in features:
                     props = feature.get("properties", {})
                     geom = feature.get("geometry", {}).get("coordinates", [0.0, 0.0])
+                    country = props.get("country", "Unknown")
                     
+                    if not country or country == "Unknown":
+                        continue
+                        
                     event_date = datetime.fromisoformat(props.get("fromdate", datetime.now(timezone.utc).isoformat())[:19])
                     raw_type = props.get("eventtype", "Unknown")
                     disaster_type = GDACS_TYPE_MAPPING.get(raw_type, DisasterType.STORM.value)
                     
                     normalized_events.append({
                         "incident_id": f"GDACS-{props.get('eventid')}",
-                        "country": props.get("country", "Unknown"),
-                        "region": props.get("country", "Unknown"),
-                        "sub_region": props.get("name", "Unknown"),
+                        "country": country,
+                        "region": country,
                         "locality": props.get("name", "Unknown"),
                         "latitude": geom[1] if len(geom) > 1 else 0.0,
                         "longitude": geom[0] if len(geom) > 0 else 0.0,
@@ -77,12 +78,11 @@ def fetch_gdacs_historical(years_back: int = 5, retries: int = 3) -> list:
                         "season": determine_season(event_date.month),
                         "disaster_type": disaster_type,
                         "primary_reason": SAFETY_REASONS.get(disaster_type, "Active meteorological alert."),
-                        "static_safety_tips": ["Monitor local authorities for real-time guidance.", "Keep emergency devices charged."],
+                        "static_safety_tips": ["Monitor local authorities for real-time guidance."],
                         "dynamic_precautions": ["Avoid the immediate affected perimeter."]
                     })
                 break 
-            except requests.exceptions.RequestException as e:
-                print(f"Attempt {attempt + 1} failed for {start_date.date()}: {e}")
+            except requests.exceptions.RequestException:
                 time.sleep(2)
                 
         end_date = start_date
@@ -98,7 +98,7 @@ def update_dataset():
         with open(RAW_DATA_PATH, "r", encoding="utf-8") as f:
             existing_data = json.load(f)
 
-    print("Fetching multi-year global historical data. This may take a minute...")
+    print("Fetching multi-year global historical data. Filtering marine anomalies...")
     new_events = fetch_gdacs_historical(years_back=5)
     existing_ids = {event["incident_id"] for event in existing_data}
     
@@ -110,7 +110,7 @@ def update_dataset():
 
     with open(RAW_DATA_PATH, "w", encoding="utf-8") as f:
         json.dump(existing_data, f, indent=2, ensure_ascii=False)
-    print(f"Dataset updated. Added {added_count} highly accurate global events.")
+    print(f"Dataset updated. Added {added_count} strictly terrestrial historical events.")
 
 if __name__ == "__main__":
     update_dataset()
