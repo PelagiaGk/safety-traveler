@@ -4,9 +4,10 @@ import math
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
-from fastapi import FastAPI, Query, HTTPException, Depends
+from fastapi import FastAPI, Query, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 import httpx
 
 BASE_DIR = Path(__file__).resolve().parents[2]
@@ -17,7 +18,11 @@ from src.api.dependencies import get_disaster_data, get_predictor
 from src.models.inference import DisasterPredictor
 from src.data.schemas import SeasonEnum
 
-app = FastAPI(title="Safety Traveler API", page_icon= "🌍")
+app = FastAPI(title="Safety Traveler API", page_icon="🌍")
+
+FRONTEND_DIR = BASE_DIR / "src" / "frontend"
+if FRONTEND_DIR.exists():
+    app.mount("/src/frontend", StaticFiles(directory=str(FRONTEND_DIR)), name="frontend")
 
 app.add_middleware(
     CORSMiddleware,
@@ -38,7 +43,6 @@ def get_current_season() -> str:
 def get_nearest_region(lat: float, lon: float, features: List[Dict]) -> Optional[Dict]:
     min_dist = float('inf')
     nearest_props = None
-    
     for feature in features:
         geom = feature.get("geometry", {})
         if geom.get("type") == "Point":
@@ -48,16 +52,13 @@ def get_nearest_region(lat: float, lon: float, features: List[Dict]) -> Optional
             if dist < min_dist:
                 min_dist = dist
                 nearest_props = feature.get("properties")
-                
     return nearest_props
 
 @app.get("/api/v1/nominatim-proxy")
 async def nominatim_proxy(lat: float, lon: float, zoom: int = 10, accept_language: str = "en"):
-    """Proxies Nominatim requests with strict OSM-compliant headers."""
     url = "https://nominatim.openstreetmap.org/reverse"
     params = {"format": "json", "lat": lat, "lon": lon, "zoom": zoom, "accept-language": accept_language}
     headers = {"User-Agent": "PublicSafetyDashboard/1.0 (open-source-dev@example.com)"}
-    
     async with httpx.AsyncClient(timeout=10.0) as client:
         try:
             response = await client.get(url, params=params, headers=headers)
@@ -69,14 +70,12 @@ async def nominatim_proxy(lat: float, lon: float, zoom: int = 10, accept_languag
 
 @app.get("/api/v1/overpass-proxy")
 async def overpass_proxy(data: str):
-    """Resilient proxy using reliable international mirrors to bypass cloud IP blocks."""
     endpoints = [
         "https://overpass.openstreetmap.ru/api/interpreter", 
         "https://overpass.osm.ch/api/interpreter",            
         "https://overpass-api.de/api/interpreter"            
     ]
     headers = {"User-Agent": "PublicSafetyDashboard/1.0", "Accept": "*/*"}
-    
     async with httpx.AsyncClient(timeout=4.0) as client:
         for url in endpoints:
             try:
@@ -163,6 +162,9 @@ def get_default_view(
         "active_seasonal_features": {"type": "FeatureCollection", "features": active_features}
     }
 
-FRONTEND_DIR = BASE_DIR / "src" / "frontend"
-if FRONTEND_DIR.exists():
-    app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
+@app.get("/")
+def serve_frontend():
+    index_file = FRONTEND_DIR / "index.html"
+    if not index_file.exists():
+        raise HTTPException(status_code=404, detail="index.html not found.")
+    return FileResponse(str(index_file))
