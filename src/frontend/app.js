@@ -8,6 +8,15 @@ window.currentScanController = null;
 
 const DEDUPE_RADIUS_DEG = 0.4; 
 
+window.addEventListener('load', () => {
+    const loader = document.getElementById('loading-screen');
+    if (loader) {
+        setTimeout(() => {
+            loader.classList.add('hidden');
+        }, 3000);
+    }
+});
+
 document.addEventListener("DOMContentLoaded", () => {
     if (map !== undefined && map !== null) {
         map.remove();
