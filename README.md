@@ -1,6 +1,7 @@
 # 🌍 Safety Traveler
+<img width="1919" height="910" alt="image" src="https://github.com/user-attachments/assets/4d786991-b4bc-4ee4-8880-773bd6b411f0" />
 
-Safety Traveler uses data to make predictions as a safety measurement.*It is not a forecaster*. 
+Safety Traveler uses data to make predictions as a safety measure.*It is not a forecaster*. 
 
 This 24/7 web application provides real-time geospatial risk assessments based on the historical recurrence of terrestrial disasters (Wildfires, Floods, Earthquakes, Storms, Heatwaves, and Droughts). By combining live map interactions with a balanced Random Forest logic, it evaluates the probabilistic danger of a region based strictly on localized meteorological history.
 
@@ -9,7 +10,7 @@ This 24/7 web application provides real-time geospatial risk assessments based o
 ## 🚀 Key Features
 * Calibrated Machine Learning Pipeline: Powered by a RandomForestClassifier wrapped with CalibratedClassifierCV to ensure robust, statistically reliable output probabilities.
 * Dynamic Percentile-Based Risk Tiering: Automatically calculates High, Medium, and Low risk boundaries dynamically from training distributions rather than relying on brittle, hardcoded cutoffs.
-* Historical Base Rate Integration: Features spatial-temporal feature engineering that incorporates regional historical baseline frequencies alongside coordinates, season, and month.
+* Historical Base Rate Integration: Features spatio-temporal feature engineering that incorporates regional historical baseline frequencies alongside coordinates, season, and month.
 * Intelligent Spatial Aggregation: Scans map boundaries via a FastAPI backend, executing grid-based multi-threat deduplication to surface distinct disaster types side-by-side without suppressing critical warnings.
 * Explainability & Tailored Precautions: Generates automated reasoning for predictions and displays dynamic, category-specific safety precautions directly within the interactive frontend popups.
 
@@ -22,11 +23,11 @@ This 24/7 web application provides real-time geospatial risk assessments based o
 * Deployment: Render (Cloud PaaS)
 
 ## 📁 Repository Structure & File Handling
-To maintain an open-source friendly public repository, project assets are handled strategically:
+To maintain an open-source-friendly public repository, project assets are handled strategically:
 
 * data/models/: Heavy binary artifacts (.joblib) are excluded from Git version control via .gitignore to prevent repository bloat. They are dynamically generated via train.py or fetched from GitHub Releases during deployment.
 * data/processed/: Lightweight structured JSON/GeoJSON files (such as regional_disaster_index.geojson) are actively tracked in Git to guarantee out-of-the-box functionality for public users and seamless server boots.
-* data/raw/: Raw raw datasets remain untracked locally and can be re-ingested via data pipelines.
+* data/raw/: Raw datasets remain untracked locally and can be re-ingested via data pipelines.
 
 ## 🧠 Machine Learning Architecture & Certainty
 This service utilizes a calibrated Random Forest Classifier operating on a 5-feature matrix (season_encoded, month, latitude, longitude, and historical_freq). It is explicitly designed to prioritize historical recurrence over generalized assumptions, anchoring predictions strictly to regional history and independent spatial features.
