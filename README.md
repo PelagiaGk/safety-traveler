@@ -1,10 +1,11 @@
 # 🌍 Safety Traveler
-<img width="1919" height="910" alt="image" src="https://github.com/user-attachments/assets/4d786991-b4bc-4ee4-8880-773bd6b411f0" />
+
 
 Safety Traveler uses data to make predictions as a safety measure.*It is not a forecaster*. 
 
 This 24/7 web application provides real-time geospatial risk assessments based on the historical recurrence of terrestrial disasters (Wildfires, Floods, Earthquakes, Storms, Heatwaves, and Droughts). By combining live map interactions with a balanced Random Forest logic, it evaluates the probabilistic danger of a region based strictly on localized meteorological history.
 
+<img width="1919" height="910" alt="image" src="https://github.com/user-attachments/assets/4d786991-b4bc-4ee4-8880-773bd6b411f0" />
 ---
 
 ## 🚀 Key Features
