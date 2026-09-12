@@ -23,43 +23,57 @@ class DisasterPredictor:
         self.training_years_span = self.encoders.get("training_years_span", 10)
 
     def predict(self, region: str, season: str, month: int = None, lat: float = None, lon: float = None) -> dict:
-        le_season = self.encoders["season"]
-        le_disaster = self.encoders["disaster"]
+        try:
+            le_season = self.encoders["season"]
+            le_disaster = self.encoders["disaster"]
 
-        active_season = season if season in le_season.classes_ else "Summer"
-        active_month = month or SEASON_MONTH_DEFAULTS.get(active_season, 7)
-        active_lat = lat if lat is not None else 0.0
-        active_lon = lon if lon is not None else 0.0
+            active_season = season if season in le_season.classes_ else "Summer"
+            active_month = month or SEASON_MONTH_DEFAULTS.get(active_season, 7)
+            active_lat = lat if lat is not None else 0.0
+            active_lon = lon if lon is not None else 0.0
 
-        x_input = pd.DataFrame([{
-            "season_encoded": le_season.transform([active_season])[0],
-            "month": active_month,
-            "latitude": active_lat,
-            "longitude": active_lon
-        }])
+            if active_season in le_season.classes_:
+                season_encoded = le_season.transform([active_season])[0]
+            else:
+                season_encoded = 0 
 
-        probabilities = self.model.predict_proba(x_input)[0]
-        classes = le_disaster.inverse_transform(self.model.classes_)
+            x_input = pd.DataFrame([{
+                "season_encoded": season_encoded,
+                "month": active_month,
+                "latitude": active_lat,
+                "longitude": active_lon
+            }])
 
-        results = []
-        for disaster_type, prob in zip(classes, probabilities):
-            prob_pct = round(prob * 100, 1)
+            probabilities = self.model.predict_proba(x_input)[0]
+            classes = le_disaster.inverse_transform(self.model.classes_)
+
+            results = []
+            for disaster_type, prob in zip(classes, probabilities):
+                prob_pct = round(prob * 100, 1)
+                
+                if prob_pct >= 12.0:
+                    risk_tier = "High" if prob_pct >= 40.0 else "Medium" if prob_pct >= 20.0 else "Low"
+
+                    results.append({
+                        "disaster_type": disaster_type,
+                        "probability_percentage": f"{prob_pct}%",
+                        "risk_rating": risk_tier,
+                        "years_of_data": self.training_years_span
+                    })
+
+            results.sort(key=lambda x: float(x["probability_percentage"].replace("%", "")), reverse=True)
             
-            if prob_pct >= 12.0:
-                risk_tier = "High" if prob_pct >= 40.0 else "Medium" if prob_pct >= 20.0 else "Low"
-
-                results.append({
-                    "disaster_type": disaster_type,
-                    "probability_percentage": f"{prob_pct}%",
-                    "risk_rating": risk_tier,
-                    "years_of_data": self.training_years_span
-                })
-
-        results.sort(key=lambda x: float(x["probability_percentage"].replace("%", "")), reverse=True)
-        
-        return {
-            "region": region,
-            "matched_region": region, 
-            "season": active_season,
-            "predictions": results
-        }
+            return {
+                "region": region,
+                "matched_region": region, 
+                "season": active_season,
+                "predictions": results
+            }
+        except Exception as e:
+            print(f"Inference prediction error for region {region}: {e}")
+            return {
+                "region": region,
+                "matched_region": region,
+                "season": season,
+                "predictions": []
+            }
