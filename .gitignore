@@ -23,6 +23,7 @@ __pycache__/
 
 documentation.txt
 
+data/models/
 models/
 models/*
 data/processed/models/*.joblib
