@@ -10,11 +10,8 @@ ENV/
 
 data/raw/*
 data/raw/*.json
-data/processed/*
 !data/raw/.gitkeep
-!data/processed/.gitkeep
-data/processed/*.joblib
-data/processed/*.pkl
+
 
 __pycache__/
 *.py[cod]
@@ -25,5 +22,3 @@ documentation.txt
 
 data/models/
 
-data/processed/models/*.joblib
-!data/processed/regional_disaster_index.geojson
