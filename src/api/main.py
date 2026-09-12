@@ -76,7 +76,7 @@ def scan_bounds(
     n: float, s: float, e: float, w: float,
     season: Optional[str] = None,
     predictor: DisasterPredictor = Depends(get_predictor),
-    data: Dict[str, Any] = Depends(get_disaster_data)
+    data: Dict[str, Any] = Depends(get_disaster_data) 
 ):
     active_season = season if season else get_current_season()
     results = []
@@ -88,10 +88,11 @@ def scan_bounds(
         
         if geom.get("type") == "Point":
             coords = geom.get("coordinates", [0, 0])
+            if not coords or len(coords) < 2:
+                continue
             lon, lat = coords[0], coords[1]
             
             if s <= lat <= n and w <= lon <= e:
-                
                 grid_lat = round(lat, 1)
                 grid_lon = round(lon, 1)
                 grid_key = f"{grid_lat}-{grid_lon}"
@@ -103,13 +104,22 @@ def scan_bounds(
                     region_name = props.get("region", "Unknown")
                     country_name = props.get("country", "Unknown")
                     
-                    pred_result = predictor.predict(region=region_name, season=active_season, lat=lat, lon=lon)
+                    try:
+                        pred_result = predictor.predict(region=region_name, season=active_season, lat=lat, lon=lon)
+                    except Exception as err:
+                        print(f"Prediction warning for {region_name}: {err}")
+                        continue
                     
                     if pred_result and "predictions" in pred_result:
                         for p in pred_result["predictions"]:
                             raw_prob = str(p.get("probability_percentage", "0")).replace("%", "")
                             
-                            if float(raw_prob) >= 12.0:
+                            try:
+                                prob_val = float(raw_prob)
+                            except ValueError:
+                                prob_val = 0.0
+
+                            if prob_val >= 12.0:
                                 results.append({
                                     "lat": lat,
                                     "lon": lon,
