@@ -8,7 +8,7 @@ from typing import Optional, List, Dict, Any
 from fastapi import FastAPI, Query, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 import httpx
 
 BASE_DIR = Path(__file__).resolve().parents[2]
@@ -53,6 +53,11 @@ def get_nearest_region(lat: float, lon: float, features: List[Dict], max_dist: f
                 min_dist = dist
                 nearest_feature = feature
     return nearest_feature
+
+@app.get("/health-check")
+async def health_check():
+    """Endpoint for Render to verify server uptime."""
+    return JSONResponse(content={"status": "healthy"}, status_code=200)
 
 @app.get("/api/v1/nominatim-proxy")
 async def nominatim_proxy(lat: float, lon: float, zoom: int = 10, accept_language: str = "en"):
