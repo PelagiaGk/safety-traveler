@@ -1,7 +1,7 @@
-# 🌍 Safety Traveler
+# 🌍 Safety Traveler - Data-driven safety predictions based on past documentations
 
 
-Safety Traveler uses data to make predictions as a safety measure.*It is not a forecaster*. 
+Safety Traveler uses data to make predictions as a safety measure. *It is not a forecaster*. 
 
 This 24/7 web application provides real-time geospatial risk assessments based on the historical recurrence of terrestrial disasters (Wildfires, Floods, Earthquakes, Storms, Heatwaves, and Droughts). By combining live map interactions with a balanced Random Forest logic, it evaluates the probabilistic danger of a region based strictly on localized meteorological history.
 
