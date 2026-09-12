@@ -4,7 +4,7 @@ import math
 
 def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Calculates haversine distance in kilometers between two spherical coordinates."""
-    r = 6371.0  # Earth radius in km
+    r = 6371.0  #Earth radius in km
     d_lat = math.radians(lat2 - lat1)
     d_lon = math.radians(lon2 - lon1)
     
