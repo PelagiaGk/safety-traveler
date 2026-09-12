@@ -76,11 +76,10 @@ def scan_bounds(
     n: float, s: float, e: float, w: float,
     season: Optional[str] = None,
     predictor: DisasterPredictor = Depends(get_predictor),
-    data: Dict[str, Any] = Depends(get_disaster_data) 
+    data: Dict[str, Any] = Depends(get_disaster_data)
 ):
     active_season = season if season else get_current_season()
-    results = []
-    seen_grid_cells = set()
+    grid_threats_map = {}
 
     for feature in data.get("features", []):
         geom = feature.get("geometry", {})
@@ -95,39 +94,50 @@ def scan_bounds(
             if s <= lat <= n and w <= lon <= e:
                 grid_lat = round(lat, 1)
                 grid_lon = round(lon, 1)
-                grid_key = f"{grid_lat}-{grid_lon}"
                 
-                if grid_key not in seen_grid_cells:
-                    seen_grid_cells.add(grid_key)
-                    
-                    locality = props.get("locality", "Unknown")
-                    region_name = props.get("region", "Unknown")
-                    country_name = props.get("country", "Unknown")
-                    
-                    try:
-                        pred_result = predictor.predict(region=region_name, season=active_season, lat=lat, lon=lon)
-                    except Exception as err:
-                        print(f"Prediction warning for {region_name}: {err}")
-                        continue
-                    
-                    if pred_result and "predictions" in pred_result:
-                        for p in pred_result["predictions"]:
-                            raw_prob = str(p.get("probability_percentage", "0")).replace("%", "")
-                            
-                            try:
-                                prob_val = float(raw_prob)
-                            except ValueError:
-                                prob_val = 0.0
+                locality = props.get("locality", "Unknown")
+                region_name = props.get("region", "Unknown")
+                country_name = props.get("country", "Unknown")
+                
+                try:
+                    pred_result = predictor.predict(region=region_name, season=active_season, lat=lat, lon=lon)
+                except Exception as err:
+                    print(f"Prediction warning for {region_name}: {err}")
+                    continue
+                
+                if pred_result and "predictions" in pred_result:
+                    for p in pred_result["predictions"]:
+                        raw_prob = str(p.get("probability_percentage", "0")).replace("%", "")
+                        try:
+                            prob_val = float(raw_prob)
+                        except ValueError:
+                            prob_val = 0.0
 
-                            if prob_val >= 12.0:
-                                results.append({
+                        if prob_val >= 12.0:
+                            disaster_type = p.get("disaster_type", "Unknown")
+                            risk_rating = p.get("risk_rating", "Low")
+                            
+                            weight = 3 if risk_rating == "High" else 2 if risk_rating == "Medium" else 1
+
+                            unique_cell_key = f"{grid_lat}-{grid_lon}-{disaster_type}"
+
+                            if unique_cell_key in grid_threats_map:
+                                if weight <= grid_threats_map[unique_cell_key]["weight"]:
+                                    continue
+
+                            grid_threats_map[unique_cell_key] = {
+                                "weight": weight,
+                                "result": {
                                     "lat": lat,
                                     "lon": lon,
                                     "region": region_name,
                                     "locality": locality,
                                     "country": country_name,
                                     "threat": p
-                                })
+                                }
+                            }
+
+    results = [item["result"] for item in grid_threats_map.values()]
     return {"results": results}
 
 @app.get("/api/v1/predict")
