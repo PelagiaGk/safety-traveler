@@ -25,7 +25,7 @@ body, button, input, select, textarea,
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: #f8fafc; 
+    background-color: #00072e; 
     z-index: 9999; 
     display: flex;
     justify-content: center;
@@ -47,24 +47,20 @@ body, button, input, select, textarea,
 
 .loader-title {
     font-size: 2.8rem;
+    font-family: 'Montserrat', sans-serif;
     font-weight: 800;
     margin-bottom: 1rem;
-    color: #0f172a;
+    color: #c8cace;
     letter-spacing: -0.5px;
 }
 
 .loader-text {
-    font-size: 1.2rem;
+    font-size: 1.8rem;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 800;
     margin-bottom: 1.5rem;
     line-height: 1.6;
-    color: #475569;
-}
-
-.loader-disclaimer {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: #ef4444;
-    font-style: italic;
+    color: #c8cace;
 }
 
 .spinner {
