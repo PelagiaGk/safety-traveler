@@ -17,7 +17,7 @@ GEOJSON_PATH = BASE_DIR / "data" / "processed" / "regional_disaster_index.geojso
 def get_disaster_data() -> Dict[str, Any]:
     """Loads and caches processed GeoJSON data securely."""
     if not GEOJSON_PATH.exists():
-        # Fail-open: Allows the server to run and serve the frontend even if data is missing
+        #Fail-open: Allows the server to run and serve the frontend even if data is missing
         print(f"Warning: GeoJSON not found at {GEOJSON_PATH}. Returning empty dataset.")
         return {"type": "FeatureCollection", "features": []}
         

@@ -1,0 +1,2322 @@
+[
+  {
+    "country":"Afghanistan",
+    "region":"Faryab Province",
+    "locality":"Pashtun Kot",
+    "season":"Spring",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Afghanistan",
+    "region":"Helmand Province",
+    "locality":"Washir",
+    "season":"Spring",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Afghanistan",
+    "region":"Herat Province",
+    "locality":"Injil",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":3
+  },
+  {
+    "country":"Afghanistan",
+    "region":"Herat Province",
+    "locality":"Zendeh Jan",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":4
+  },
+  {
+    "country":"Afghanistan",
+    "region":"Khost Province",
+    "locality":"Spera",
+    "season":"Summer",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Afghanistan",
+    "region":"Samangan Province",
+    "locality":"Fayroz Nakhchir",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Albania",
+    "region":"Albania",
+    "locality":"Mesopotam",
+    "season":"Summer",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"Algeria",
+    "region":"Bejaia",
+    "locality":"El Kseur",
+    "season":"Summer",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"Argentina",
+    "region":"Buenos Aires",
+    "locality":"Buenos Aires",
+    "season":"Autumn",
+    "disaster_type":"Drought",
+    "incident_count":2
+  },
+  {
+    "country":"Argentina",
+    "region":"Corrientes",
+    "locality":"Municipio de Ituzaing\u00f3",
+    "season":"Winter",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"Bahamas",
+    "region":"Bahamas",
+    "locality":"Crooked Island and Long Cay",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Bangladesh",
+    "region":"Barishal Division",
+    "locality":"Rangabali Upazila",
+    "season":"Summer",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Bangladesh",
+    "region":"Chattogram Division",
+    "locality":"Cox's Bazar District",
+    "season":"Autumn",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Bangladesh",
+    "region":"Chattogram Division",
+    "locality":"Cox's Bazar District",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Bangladesh",
+    "region":"Chattogram Division",
+    "locality":"Nangalkot Upazila",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Bangladesh",
+    "region":"Dhaka Division",
+    "locality":"Bhairab",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Bangladesh",
+    "region":"Dhaka Division",
+    "locality":"Narsingdi",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Bangladesh",
+    "region":"Khulna Division",
+    "locality":"Kaliganj Upazila (Satkhira)",
+    "season":"Winter",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Bangladesh",
+    "region":"Mymensingh Division",
+    "locality":"Fulbaria Upazila",
+    "season":"Autumn",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Belgium",
+    "region":"Li\u00e8ge",
+    "locality":"Verviers",
+    "season":"Summer",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"Bolivia",
+    "region":"Beni",
+    "locality":"Municipio Exaltaci\u00f3n",
+    "season":"Summer",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"Bolivia",
+    "region":"Cochabamba",
+    "locality":"Chapare",
+    "season":"Summer",
+    "disaster_type":"Drought",
+    "incident_count":2
+  },
+  {
+    "country":"Bolivia",
+    "region":"Santa Cruz",
+    "locality":"Concepci\u00f3n",
+    "season":"Autumn",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"Bolivia",
+    "region":"Santa Cruz",
+    "locality":"Municipio San Mat\u00edas",
+    "season":"Summer",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"Bosnia and Herzegovina",
+    "region":"Republika Srpska",
+    "locality":"Town of Gradi\u0161ka",
+    "season":"Autumn",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Brazil",
+    "region":"Acre",
+    "locality":"Feij\u00f3",
+    "season":"Winter",
+    "disaster_type":"Flood",
+    "incident_count":2
+  },
+  {
+    "country":"Brazil",
+    "region":"Minas Gerais",
+    "locality":"Minas Gerais",
+    "season":"Autumn",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Brazil",
+    "region":"Para\u00edba",
+    "locality":"Pocinhos",
+    "season":"Spring",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Brazil",
+    "region":"Pernambuco",
+    "locality":"Riacho das Almas",
+    "season":"Spring",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Brazil",
+    "region":"S\u00e3o Paulo",
+    "locality":"Sert\u00e3ozinho",
+    "season":"Summer",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"Burundi",
+    "region":"Cibitoke",
+    "locality":"Buganda",
+    "season":"Spring",
+    "disaster_type":"Flood",
+    "incident_count":2
+  },
+  {
+    "country":"Canada",
+    "region":"Quebec",
+    "locality":"Eeyou Istchee James Bay",
+    "season":"Summer",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"Canada",
+    "region":"Quebec",
+    "locality":"Urban agglomeration of Les \u00celes-de-la-Madeleine",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":2
+  },
+  {
+    "country":"Chad",
+    "region":"Lac",
+    "locality":"Baga-Sola",
+    "season":"Autumn",
+    "disaster_type":"Flood",
+    "incident_count":2
+  },
+  {
+    "country":"Chile",
+    "region":"Antofagasta Region",
+    "locality":"San Pedro de Atacama",
+    "season":"Summer",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Chile",
+    "region":"Biobio Region",
+    "locality":"Concepcion",
+    "season":"Winter",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"Chile",
+    "region":"Biobio Region",
+    "locality":"Tom\u00e9",
+    "season":"Winter",
+    "disaster_type":"Wildfire",
+    "incident_count":2
+  },
+  {
+    "country":"Chile",
+    "region":"Valparaiso Region",
+    "locality":"Valpara\u00edso",
+    "season":"Winter",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"Fujian",
+    "locality":"Dehua County",
+    "season":"Summer",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"Fujian",
+    "locality":"Fuqing City",
+    "season":"Summer",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"Fujian",
+    "locality":"Longyan City",
+    "season":"Summer",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"Fujian",
+    "locality":"Meiling",
+    "season":"Summer",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"Fujian",
+    "locality":"Yunxiao County",
+    "season":"Summer",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"Gansu",
+    "locality":"Liugou Township",
+    "season":"Winter",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"Gansu",
+    "locality":"Liushu",
+    "season":"Summer",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"Guangdong",
+    "locality":"Heyuan",
+    "season":"Spring",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"Guangdong",
+    "locality":"Huizhou",
+    "season":"Summer",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"Guangdong",
+    "locality":"Jiangmen",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"Guangdong",
+    "locality":"Maoming City",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"Guangdong",
+    "locality":"Maoming City",
+    "season":"Summer",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"Guangdong",
+    "locality":"Zhanjiang City",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"Guangdong",
+    "locality":"Zhanjiang City",
+    "season":"Summer",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"Guangxi",
+    "locality":"Dongxing",
+    "season":"Summer",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"Guangxi",
+    "locality":"Liucheng County",
+    "season":"Spring",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"Guangxi",
+    "locality":"Qinzhou",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"Hubei",
+    "locality":"Zigui County",
+    "season":"Summer",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"Liaoning",
+    "locality":"Liaoning",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"New Territories",
+    "locality":"Hong Kong",
+    "season":"Autumn",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"Qinghai",
+    "locality":"Menyuan Hui Autonomous County",
+    "season":"Winter",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"Qinghai",
+    "locality":"Qaidam",
+    "season":"Summer",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"Qinghai",
+    "locality":"Xinghai County",
+    "season":"Summer",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"Shandong",
+    "locality":"Pingyuan County",
+    "season":"Summer",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"Shanghai",
+    "locality":"Fengxian District",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":2
+  },
+  {
+    "country":"China",
+    "region":"Shanghai",
+    "locality":"Shanghai",
+    "season":"Autumn",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"Shanxi",
+    "locality":"Jinzhong City",
+    "season":"Autumn",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"Sichuan",
+    "locality":"Luding County",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"Sichuan",
+    "locality":"Shengdeng",
+    "season":"Summer",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"Sichuan",
+    "locality":"Xinlong County",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"Xinjiang",
+    "locality":"Uqturpan County",
+    "season":"Winter",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"Xizang",
+    "locality":"Qulho",
+    "season":"Winter",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"Zhejiang",
+    "locality":"Ouhai District",
+    "season":"Summer",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"Zhejiang",
+    "locality":"Xianju County",
+    "season":"Summer",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"Zhejiang",
+    "locality":"Xihu District",
+    "season":"Summer",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"China",
+    "region":"Zhejiang",
+    "locality":"Yongkang",
+    "season":"Summer",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Colombia",
+    "region":"Choc\u00f3",
+    "locality":"Choc\u00f3",
+    "season":"Summer",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Colombia",
+    "region":"Meta",
+    "locality":"Restrepo",
+    "season":"Summer",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Cuba",
+    "region":"Cuba",
+    "locality":"Jiguan\u00ed",
+    "season":"Autumn",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Cyprus",
+    "region":"Cyprus",
+    "locality":"Psathi",
+    "season":"Summer",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"Czechia",
+    "region":"Olomouc Region",
+    "locality":"Olomouc Region",
+    "season":"Autumn",
+    "disaster_type":"Flood",
+    "incident_count":2
+  },
+  {
+    "country":"Czechia",
+    "region":"\u00dast\u00ed nad Labem Region",
+    "locality":"okres D\u011b\u010d\u00edn",
+    "season":"Summer",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"Democratic Republic of the Congo",
+    "region":"Kongo Central",
+    "locality":"Matadi",
+    "season":"Winter",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Democratic Republic of the Congo",
+    "region":"North Kivu",
+    "locality":"Walikale",
+    "season":"Winter",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Democratic Republic of the Congo",
+    "region":"Tanganyika",
+    "locality":"Kalemie",
+    "season":"Spring",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Democratic Republic of the Congo",
+    "region":"Tshopo",
+    "locality":"Isangi",
+    "season":"Spring",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Ecuador",
+    "region":"Guayas",
+    "locality":"Guayas",
+    "season":"Spring",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Ethiopia",
+    "region":"Afar Region",
+    "locality":"Afar Region",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Ethiopia",
+    "region":"Afar Region",
+    "locality":"Afar Region",
+    "season":"Winter",
+    "disaster_type":"Earthquake",
+    "incident_count":3
+  },
+  {
+    "country":"Ethiopia",
+    "region":"Gambela Region",
+    "locality":"Gambela",
+    "season":"Summer",
+    "disaster_type":"Flood",
+    "incident_count":2
+  },
+  {
+    "country":"Ethiopia",
+    "region":"Oromia Region",
+    "locality":"Ghimbi",
+    "season":"Spring",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Ethiopia",
+    "region":"Oromia Region",
+    "locality":"Metehara",
+    "season":"Winter",
+    "disaster_type":"Earthquake",
+    "incident_count":2
+  },
+  {
+    "country":"Ethiopia",
+    "region":"Oromia Region",
+    "locality":"Oromia Region",
+    "season":"Spring",
+    "disaster_type":"Drought",
+    "incident_count":1
+  },
+  {
+    "country":"Ethiopia",
+    "region":"Oromia Region",
+    "locality":"Oromia Region",
+    "season":"Winter",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Ethiopia",
+    "region":"Somali Region",
+    "locality":"Somali Region",
+    "season":"Autumn",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Ethiopia",
+    "region":"South Ethiopia Regional State",
+    "locality":"South Ethiopia Regional State",
+    "season":"Spring",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"France",
+    "region":"Ile-de-France",
+    "locality":"Seine-et-Marne",
+    "season":"Summer",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"France",
+    "region":"Nouvelle-Aquitaine",
+    "locality":"Gironde",
+    "season":"Summer",
+    "disaster_type":"Wildfire",
+    "incident_count":2
+  },
+  {
+    "country":"France",
+    "region":"Occitania",
+    "locality":"Pyr\u00e9n\u00e9es-Orientales",
+    "season":"Summer",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"France",
+    "region":"Pays de la Loire",
+    "locality":"Nantes",
+    "season":"Winter",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Germany",
+    "region":"Bavaria",
+    "locality":"Landkreis Landsberg am Lech",
+    "season":"Winter",
+    "disaster_type":"Drought",
+    "incident_count":2
+  },
+  {
+    "country":"Germany",
+    "region":"Lower Saxony",
+    "locality":"Landkreis Nienburg\/Weser",
+    "season":"Winter",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Greece",
+    "region":"Attica",
+    "locality":"Municipal Unit of Vilia",
+    "season":"Summer",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"Greece",
+    "region":"Attica",
+    "locality":"Regional Unit of East Attica",
+    "season":"Summer",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"Greece",
+    "region":"Eastern Macedonia and Thrace",
+    "locality":"Alexandroupolis",
+    "season":"Summer",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"Greece",
+    "region":"Peloponnese Region",
+    "locality":"Municipal Unit of Xylokastro",
+    "season":"Autumn",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"Greece",
+    "region":"Region of Crete",
+    "locality":"Rethymno Regional Unit",
+    "season":"Summer",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"Greece",
+    "region":"South Aegean",
+    "locality":"Rhodes Regional Unit",
+    "season":"Summer",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"Guatemala",
+    "region":"Izabal",
+    "locality":"El Estor",
+    "season":"Spring",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"Guatemala",
+    "region":"Izabal",
+    "locality":"Los Amates",
+    "season":"Spring",
+    "disaster_type":"Drought",
+    "incident_count":1
+  },
+  {
+    "country":"Guatemala",
+    "region":"Pet\u00e9n",
+    "locality":"La Libertad",
+    "season":"Spring",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"Guatemala",
+    "region":"Quetzaltenango",
+    "locality":"San Carlos Sija",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Guatemala",
+    "region":"Sacatep\u00e9quez",
+    "locality":"Alotenango",
+    "season":"Spring",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Haiti",
+    "region":"D\u00e9partement des Nippes",
+    "locality":"Commune Anse-\u00e0-Veau",
+    "season":"Winter",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"India",
+    "region":"Andhra Pradesh",
+    "locality":"Koduru",
+    "season":"Spring",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"India",
+    "region":"Andhra Pradesh",
+    "locality":"Muthukur",
+    "season":"Winter",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"India",
+    "region":"Andhra Pradesh",
+    "locality":"Nallajerla",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"India",
+    "region":"Andhra Pradesh",
+    "locality":"Yeddana Pudi",
+    "season":"Autumn",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"India",
+    "region":"Assam",
+    "locality":"Dalgaon (Pt)",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"India",
+    "region":"Gujarat",
+    "locality":"Abdasa Taluka",
+    "season":"Summer",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"India",
+    "region":"Gujarat",
+    "locality":"Chuda Taluka",
+    "season":"Summer",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"India",
+    "region":"Himachal Pradesh",
+    "locality":"Bilaspur",
+    "season":"Summer",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"India",
+    "region":"Himachal Pradesh",
+    "locality":"Rohru",
+    "season":"Summer",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"India",
+    "region":"Himachal Pradesh",
+    "locality":"Sainj",
+    "season":"Summer",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"India",
+    "region":"Odisha",
+    "locality":"Dhamara Marine",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"India",
+    "region":"Odisha",
+    "locality":"Harbhanga",
+    "season":"Autumn",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"India",
+    "region":"Odisha",
+    "locality":"Seragad",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"India",
+    "region":"Tamil Nadu",
+    "locality":"Chengalpattu",
+    "season":"Winter",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"India",
+    "region":"Tamil Nadu",
+    "locality":"Marakanam",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"India",
+    "region":"Uttar Pradesh",
+    "locality":"Sidhauli",
+    "season":"Summer",
+    "disaster_type":"Flood",
+    "incident_count":3
+  },
+  {
+    "country":"India",
+    "region":"Uttarakhand",
+    "locality":"Bhimtal",
+    "season":"Summer",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"India",
+    "region":"Uttarakhand",
+    "locality":"Thailisain",
+    "season":"Autumn",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"India",
+    "region":"West Bengal",
+    "locality":"Dantan-I",
+    "season":"Summer",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"India",
+    "region":"West Bengal",
+    "locality":"Patharpratima",
+    "season":"Spring",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Indonesia",
+    "region":"Central Papua",
+    "locality":"Mimika",
+    "season":"Winter",
+    "disaster_type":"Flood",
+    "incident_count":2
+  },
+  {
+    "country":"Indonesia",
+    "region":"Central Sulawesi",
+    "locality":"Central Sulawesi",
+    "season":"Summer",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Indonesia",
+    "region":"East Java",
+    "locality":"East Java",
+    "season":"Spring",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Indonesia",
+    "region":"East Java",
+    "locality":"Kabupaten Malang",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Indonesia",
+    "region":"East Java",
+    "locality":"Kabupaten Malang",
+    "season":"Winter",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Indonesia",
+    "region":"East Nusa Tenggara",
+    "locality":"East Nusa Tenggara",
+    "season":"Summer",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Indonesia",
+    "region":"East Nusa Tenggara",
+    "locality":"Flores Timur",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":2
+  },
+  {
+    "country":"Indonesia",
+    "region":"East Nusa Tenggara",
+    "locality":"Flores Timur",
+    "season":"Winter",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Indonesia",
+    "region":"Maluku",
+    "locality":"Maluku",
+    "season":"Winter",
+    "disaster_type":"Earthquake",
+    "incident_count":2
+  },
+  {
+    "country":"Indonesia",
+    "region":"North Maluku",
+    "locality":"Halmahera Barat",
+    "season":"Winter",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Indonesia",
+    "region":"North Maluku",
+    "locality":"Halmahera Utara",
+    "season":"Spring",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Indonesia",
+    "region":"North Sumatra",
+    "locality":"South Nias",
+    "season":"Spring",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Indonesia",
+    "region":"West Java",
+    "locality":"Cianjur",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Indonesia",
+    "region":"West Nusa Tenggara",
+    "locality":"West Nusa Tenggara",
+    "season":"Autumn",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Iran",
+    "region":"Hormozgan Province",
+    "locality":"\u062f\u0647\u0633\u062a\u0627\u0646 \u0628\u0646\u062f\u0631\u0686\u0627\u0631\u06a9",
+    "season":"Summer",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Iran",
+    "region":"Hormozgan Province",
+    "locality":"\u062f\u0647\u0633\u062a\u0627\u0646 \u062f\u0698\u06af\u0627\u0646",
+    "season":"Summer",
+    "disaster_type":"Earthquake",
+    "incident_count":2
+  },
+  {
+    "country":"Iran",
+    "region":"Hormozgan Province",
+    "locality":"\u062f\u0647\u0633\u062a\u0627\u0646 \u06af\u0647\u0631\u0647",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Iran",
+    "region":"West Azerbaijan Province",
+    "locality":"\u062f\u0647\u0633\u062a\u0627\u0646 \u0631\u0647\u0627\u0644",
+    "season":"Winter",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Iran",
+    "region":"West Azerbaijan Province",
+    "locality":"\u062f\u0647\u0633\u062a\u0627\u0646 \u0642\u0631\u0647 \u0633\u0648",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Iran",
+    "region":"West Azerbaijan Province",
+    "locality":"\u062f\u0647\u0633\u062a\u0627\u0646 \u0642\u0631\u0647 \u0633\u0648",
+    "season":"Winter",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Italy",
+    "region":"Sicily",
+    "locality":"Cinisi",
+    "season":"Summer",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"Japan",
+    "region":"Japan",
+    "locality":"Kumamoto",
+    "season":"Summer",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Japan",
+    "region":"Japan",
+    "locality":"Shimada",
+    "season":"Summer",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Japan",
+    "region":"Japan",
+    "locality":"Suzu",
+    "season":"Winter",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Japan",
+    "region":"Japan",
+    "locality":"Wajima",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Kazakhstan",
+    "region":"Atyrau Region",
+    "locality":"\u049a\u0430\u043c\u044b\u0441\u049b\u0430\u043b\u0430 \u0430\u0443\u044b\u043b\u0434\u044b\u049b \u043e\u043a\u0440\u0443\u0433\u0456",
+    "season":"Spring",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Kenya",
+    "region":"Isiolo",
+    "locality":"Merti",
+    "season":"Autumn",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Kenya",
+    "region":"Nairobi County",
+    "locality":"Nairobi",
+    "season":"Spring",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Libya",
+    "region":"Derna",
+    "locality":"Derna",
+    "season":"Autumn",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Madagascar",
+    "region":"Betsiboka",
+    "locality":"Tsaratanana",
+    "season":"Autumn",
+    "disaster_type":"Drought",
+    "incident_count":2
+  },
+  {
+    "country":"Madagascar",
+    "region":"Diana Region",
+    "locality":"Ambanja",
+    "season":"Spring",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Madagascar",
+    "region":"Itasy Region",
+    "locality":"Arivonimamo",
+    "season":"Winter",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Malawi",
+    "region":"Blantyre",
+    "locality":"Blantyre",
+    "season":"Spring",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Malawi",
+    "region":"Zomba",
+    "locality":"Zomba",
+    "season":"Spring",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Malaysia",
+    "region":"Perak",
+    "locality":"Kuala Kangsar",
+    "season":"Winter",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Mexico",
+    "region":"Chiapas",
+    "locality":"Chiapa de Corzo",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Mexico",
+    "region":"Coahuila",
+    "locality":"Escobedo",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Mexico",
+    "region":"Coahuila",
+    "locality":"Ramos Arizpe",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Mexico",
+    "region":"Durango",
+    "locality":"Municipio de Durango",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Mexico",
+    "region":"Jalisco",
+    "locality":"Atotonilquillo",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Mexico",
+    "region":"Michoac\u00e1n",
+    "locality":"Aquila",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Mexico",
+    "region":"Michoac\u00e1n",
+    "locality":"Tiquicheo de Nicol\u00e1s Romero",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Mexico",
+    "region":"Oaxaca",
+    "locality":"Mat\u00edas Romero Avenda\u00f1o",
+    "season":"Spring",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Mexico",
+    "region":"Sinaloa",
+    "locality":"Navolato",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Mexico",
+    "region":"Zacatecas",
+    "locality":"Genaro Codina",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Mexico",
+    "region":"Zacatecas",
+    "locality":"Loreto",
+    "season":"Summer",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Morocco",
+    "region":"Marrakech-Safi",
+    "locality":"Azgour",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Mozambique",
+    "region":"Manica Province",
+    "locality":"Guro",
+    "season":"Winter",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Mozambique",
+    "region":"Sofala Province",
+    "locality":"Sofala Province",
+    "season":"Winter",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Mozambique",
+    "region":"Zambezia Province",
+    "locality":"Pebane",
+    "season":"Winter",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Mozambique",
+    "region":"Zambezia Province",
+    "locality":"Zambezia Province",
+    "season":"Winter",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Myanmar",
+    "region":"Rakhine",
+    "locality":"Mrauk-U District",
+    "season":"Spring",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Myanmar",
+    "region":"Rakhine",
+    "locality":"Sittwe",
+    "season":"Spring",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Myanmar",
+    "region":"Shan State",
+    "locality":"Mong Ping Township",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Nepal",
+    "region":"Bagamati Province",
+    "locality":"Makwanpur",
+    "season":"Summer",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Nepal",
+    "region":"Gandaki Province",
+    "locality":"Kaski",
+    "season":"Autumn",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Nepal",
+    "region":"Gandaki Province",
+    "locality":"Pokhara",
+    "season":"Autumn",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Nepal",
+    "region":"Karnali Province",
+    "locality":"Jajarkot",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Nepal",
+    "region":"Koshi Province",
+    "locality":"Ilam",
+    "season":"Autumn",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Nepal",
+    "region":"Sudurpashchim Province",
+    "locality":"Achham",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Nepal",
+    "region":"Sudurpashchim Province",
+    "locality":"Bajhang",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Nigeria",
+    "region":"Bayelsa State",
+    "locality":"Southern Ijaw",
+    "season":"Autumn",
+    "disaster_type":"Flood",
+    "incident_count":2
+  },
+  {
+    "country":"Nigeria",
+    "region":"Kwara State",
+    "locality":"Pategi",
+    "season":"Summer",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Nigeria",
+    "region":"Sokoto State",
+    "locality":"Gada",
+    "season":"Summer",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"North Korea",
+    "region":"Kangwon",
+    "locality":"Sepo County",
+    "season":"Summer",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Oman",
+    "region":"Al Batinah North Governorate",
+    "locality":"As Suwaiq Province",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Pakistan",
+    "region":"Gilgit-Baltistan",
+    "locality":"Shigar District",
+    "season":"Summer",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Pakistan",
+    "region":"Punjab",
+    "locality":"Punjab",
+    "season":"Summer",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Papua New Guinea",
+    "region":"East Sepik",
+    "locality":"East Sepik",
+    "season":"Spring",
+    "disaster_type":"Earthquake",
+    "incident_count":2
+  },
+  {
+    "country":"Papua New Guinea",
+    "region":"Madang",
+    "locality":"Bogia District",
+    "season":"Summer",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Papua New Guinea",
+    "region":"Madang",
+    "locality":"Madang",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Papua New Guinea",
+    "region":"Madang",
+    "locality":"Saidor District",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Papua New Guinea",
+    "region":"Morobe",
+    "locality":"Morobe",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Peru",
+    "region":"Arequipa",
+    "locality":"Arequipa",
+    "season":"Summer",
+    "disaster_type":"Earthquake",
+    "incident_count":2
+  },
+  {
+    "country":"Peru",
+    "region":"Jun\u00edn",
+    "locality":"Jun\u00edn",
+    "season":"Summer",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Peru",
+    "region":"Loreto",
+    "locality":"Loreto",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Philippines",
+    "region":"Abra",
+    "locality":"Bucay",
+    "season":"Summer",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Philippines",
+    "region":"Abra",
+    "locality":"Lagangilang",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Philippines",
+    "region":"Agusan del Norte",
+    "locality":"Las Nieves",
+    "season":"Winter",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Philippines",
+    "region":"Agusan del Sur",
+    "locality":"Bayugan",
+    "season":"Winter",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Philippines",
+    "region":"Albay",
+    "locality":"Malilipot",
+    "season":"Summer",
+    "disaster_type":"Earthquake",
+    "incident_count":2
+  },
+  {
+    "country":"Philippines",
+    "region":"Bukidnon",
+    "locality":"Libona",
+    "season":"Spring",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Philippines",
+    "region":"Cebu",
+    "locality":"Cebu",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":2
+  },
+  {
+    "country":"Philippines",
+    "region":"Davao Oriental",
+    "locality":"Caraga",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Philippines",
+    "region":"Davao de Oro",
+    "locality":"Davao de Oro",
+    "season":"Winter",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Philippines",
+    "region":"Masbate",
+    "locality":"Masbate",
+    "season":"Winter",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Philippines",
+    "region":"Negros Occidental",
+    "locality":"Bago",
+    "season":"Spring",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Philippines",
+    "region":"Negros Occidental",
+    "locality":"Bago",
+    "season":"Winter",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Philippines",
+    "region":"Philippines",
+    "locality":"Philippines",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":2
+  },
+  {
+    "country":"Philippines",
+    "region":"Philippines",
+    "locality":"Philippines",
+    "season":"Autumn",
+    "disaster_type":"Flood",
+    "incident_count":2
+  },
+  {
+    "country":"Philippines",
+    "region":"Philippines",
+    "locality":"Philippines",
+    "season":"Summer",
+    "disaster_type":"Earthquake",
+    "incident_count":2
+  },
+  {
+    "country":"Philippines",
+    "region":"Samar",
+    "locality":"Samar",
+    "season":"Winter",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Philippines",
+    "region":"Surigao del Sur",
+    "locality":"Hinatuan",
+    "season":"Winter",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Portugal",
+    "region":"Portugal",
+    "locality":"Albergaria-a-Velha",
+    "season":"Autumn",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"Portugal",
+    "region":"Portugal",
+    "locality":"Castro Daire",
+    "season":"Autumn",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"Portugal",
+    "region":"Portugal",
+    "locality":"Pr\u00e9stimo e Macieira de Alcoba",
+    "season":"Summer",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"Portugal",
+    "region":"Portugal",
+    "locality":"Ribeira Brava",
+    "season":"Summer",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"Russia",
+    "region":"Kamchatka Krai",
+    "locality":"Kamchatka Krai",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Russia",
+    "region":"Kamchatka Krai",
+    "locality":"Kamchatka Krai",
+    "season":"Summer",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Rwanda",
+    "region":"Northern Province",
+    "locality":"Ruhunde",
+    "season":"Spring",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Serbia",
+    "region":"Serbia",
+    "locality":"Kovin Municipality",
+    "season":"Summer",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"Solomon Islands",
+    "region":"Guadalcanal",
+    "locality":"Guadalcanal",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Somalia",
+    "region":"Bay",
+    "locality":"Burhakaba District",
+    "season":"Spring",
+    "disaster_type":"Drought",
+    "incident_count":2
+  },
+  {
+    "country":"Somalia",
+    "region":"Gedo",
+    "locality":"Bardera",
+    "season":"Spring",
+    "disaster_type":"Flood",
+    "incident_count":2
+  },
+  {
+    "country":"Somalia",
+    "region":"Nugaal",
+    "locality":"Garowe District",
+    "season":"Autumn",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"South Africa",
+    "region":"KwaZulu-Natal",
+    "locality":"Durban",
+    "season":"Spring",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"South Africa",
+    "region":"Limpopo",
+    "locality":"Molemole Local Municipality",
+    "season":"Winter",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"South Sudan",
+    "region":"Upper Nile",
+    "locality":"KuanyLualThuan\/Nasir",
+    "season":"Summer",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"South Sudan",
+    "region":"Upper Nile",
+    "locality":"Maiwut",
+    "season":"Summer",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Spain",
+    "region":"Andalusia",
+    "locality":"Andalusia",
+    "season":"Summer",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"Spain",
+    "region":"Aragon",
+    "locality":"Jacetania",
+    "season":"Summer",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"Spain",
+    "region":"Canary Islands",
+    "locality":"Villa de Mazo",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Spain",
+    "region":"Castile and Le\u00f3n",
+    "locality":"Castile and Le\u00f3n",
+    "season":"Summer",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"Spain",
+    "region":"Castile-La Mancha",
+    "locality":"Castile-La Mancha",
+    "season":"Autumn",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Spain",
+    "region":"Castile-La Mancha",
+    "locality":"Castile-La Mancha",
+    "season":"Summer",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"Spain",
+    "region":"Valencian Community",
+    "locality":"la Plana Baixa",
+    "season":"Summer",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"Sri Lanka",
+    "region":"Central Province",
+    "locality":"Central Province",
+    "season":"Autumn",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Taiwan",
+    "region":"Taiwan",
+    "locality":"Fuli",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Taiwan",
+    "region":"Taiwan",
+    "locality":"Haiduan",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Taiwan",
+    "region":"Taiwan",
+    "locality":"Shoufeng",
+    "season":"Spring",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Taiwan",
+    "region":"Taiwan",
+    "locality":"Taiwan",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Tanzania",
+    "region":"Coastal Zone",
+    "locality":"Dar es Salaam",
+    "season":"Spring",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Tanzania",
+    "region":"Tanzania",
+    "locality":"Tanzania",
+    "season":"Spring",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Thailand",
+    "region":"Thailand",
+    "locality":"Bangkok",
+    "season":"Winter",
+    "disaster_type":"Flood",
+    "incident_count":2
+  },
+  {
+    "country":"Thailand",
+    "region":"Thailand",
+    "locality":"Yaha District",
+    "season":"Autumn",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"Tonga",
+    "region":"Ha\u02bbapai",
+    "locality":"Ha\u02bbapai",
+    "season":"Winter",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Tunisia",
+    "region":"Al Kaf",
+    "locality":"\u062c\u0631\u0627\u062f\u0648",
+    "season":"Summer",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"Tunisia",
+    "region":"Jendouba",
+    "locality":"\u0639\u064a\u0646 \u0627\u0644\u0635\u0628\u062d",
+    "season":"Summer",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"Turkey",
+    "region":"Black Sea Region",
+    "locality":"G\u00fcm\u00fc\u015fova",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Turkey",
+    "region":"Eastern Anatolia Region",
+    "locality":"P\u00fct\u00fcrge",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Turkey",
+    "region":"Marmara Region",
+    "locality":"S\u0131nd\u0131rg\u0131",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Turkey",
+    "region":"Mediterranean Region",
+    "locality":"Ekin\u00f6z\u00fc",
+    "season":"Winter",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Turkey",
+    "region":"Mediterranean Region",
+    "locality":"G\u00f6ksun",
+    "season":"Winter",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Turkey",
+    "region":"Mediterranean Region",
+    "locality":"Samanda\u011f",
+    "season":"Winter",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Turkey",
+    "region":"Southeastern Anatolia Region",
+    "locality":"Nurda\u011f\u0131",
+    "season":"Winter",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Turkey",
+    "region":"Southeastern Anatolia Region",
+    "locality":"\u015eehitkamil",
+    "season":"Winter",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Uganda",
+    "region":"Kaliro",
+    "locality":"Kaliro",
+    "season":"Spring",
+    "disaster_type":"Drought",
+    "incident_count":1
+  },
+  {
+    "country":"United States",
+    "region":"Arkansas",
+    "locality":"Hempstead County",
+    "season":"Summer",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"United States",
+    "region":"California",
+    "locality":"Altadena",
+    "season":"Winter",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"United States",
+    "region":"California",
+    "locality":"Barstow",
+    "season":"Summer",
+    "disaster_type":"Flood",
+    "incident_count":1
+  },
+  {
+    "country":"United States",
+    "region":"California",
+    "locality":"Los Angeles",
+    "season":"Winter",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"United States",
+    "region":"Hawaii",
+    "locality":"Lahaina",
+    "season":"Summer",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"United States",
+    "region":"Idaho",
+    "locality":"Valley County",
+    "season":"Summer",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"United States",
+    "region":"Kentucky",
+    "locality":"Larue County",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"United States",
+    "region":"Texas",
+    "locality":"Roberts County",
+    "season":"Winter",
+    "disaster_type":"Wildfire",
+    "incident_count":1
+  },
+  {
+    "country":"United States",
+    "region":"Virginia",
+    "locality":"Amelia County",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":2
+  },
+  {
+    "country":"Vanuatu",
+    "region":"Sanma",
+    "locality":"Sanma",
+    "season":"Winter",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Vanuatu",
+    "region":"Shefa Province",
+    "locality":"Shefa Province",
+    "season":"Winter",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Venezuela",
+    "region":"Lara State",
+    "locality":"Municipio Torres",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Venezuela",
+    "region":"Trujillo State",
+    "locality":"Municipio Jos\u00e9 Felipe M\u00e1rquez Ca\u00f1izales",
+    "season":"Autumn",
+    "disaster_type":"Earthquake",
+    "incident_count":1
+  },
+  {
+    "country":"Venezuela",
+    "region":"Yaracuy State",
+    "locality":"Municipio Veroes",
+    "season":"Summer",
+    "disaster_type":"Earthquake",
+    "incident_count":2
+  },
+  {
+    "country":"Vietnam",
+    "region":"Gia Lai Province",
+    "locality":"An Kh\u00ea",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Vietnam",
+    "region":"Gia Lai Province",
+    "locality":"X\u00e3 Canh Vinh",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Vietnam",
+    "region":"H\u00e0 T\u0129nh Province",
+    "locality":"K\u1ef3 Anh Commune",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Vietnam",
+    "region":"Vietnam",
+    "locality":"H\u1ea3i Ph\u00f2ng",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Vietnam",
+    "region":"Vietnam",
+    "locality":"Quang Ninh City",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":1
+  },
+  {
+    "country":"Vietnam",
+    "region":"Vietnam",
+    "locality":"\u0110\u00e0 N\u1eb5ng",
+    "season":"Autumn",
+    "disaster_type":"Storm",
+    "incident_count":3
+  },
+  {
+    "country":"Yemen",
+    "region":"Aden Governorate",
+    "locality":"Aden Governorate",
+    "season":"Autumn",
+    "disaster_type":"Flood",
+    "incident_count":1
+  }
+]
