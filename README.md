@@ -45,7 +45,6 @@ This service utilizes a Random Forest Classifier. It is explicitly designed to p
 ```bash
 python src/models/evaluate.py
 ```
-(Note: Review the generated model_certainty.png Confusion Matrix to visualize the algorithm's probabilistic hedging).
 
 ## 💻 Getting Started (Local Development)
 This repository includes a .devcontainer configuration, ensuring a standardized environment without polluting your local machine.
@@ -66,7 +65,6 @@ Open in Devcontainer:
 Open the folder in VS Code. A prompt will appear to "Reopen in Container". Click it to automatically build the Docker environment and install all dependencies.
 
 #### Generate the Data & Model:
-(Raw data and heavy binaries are git-ignored to keep the repo lightweight).
 
 ```bash
 python src/data/ingest_gdacs.py

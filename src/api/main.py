@@ -113,7 +113,7 @@ def scan_bounds(
                         except ValueError:
                             prob_val = 0.0
 
-                        if prob_val >= 12.0:
+                        if prob_val >= 1.0:
                             disaster_type = p.get("disaster_type", "Unknown")
                             risk_rating = p.get("risk_rating", "Low")
                             
