@@ -117,12 +117,12 @@ document.addEventListener("DOMContentLoaded", () => {
             const center = map.getBounds().getCenter();
             if (typeof updateRegionMeta === 'function') updateRegionMeta(center.lat, center.lng);
             scanVisibleArea();
-        }, 600); 
+        }, 1200); 
     });
     
     map.on('zoomend', () => {
         clearTimeout(scanTimeout);
-        scanTimeout = setTimeout(scanVisibleArea, 600); 
+        scanTimeout = setTimeout(scanVisibleArea, 1200); 
     });
 
     scanVisibleArea();
@@ -247,7 +247,16 @@ async function updateRegionMeta(lat, lon) {
 }
 
 async function scanVisibleArea() {
-    if (window.currentScanController) window.currentScanController.abort();
+    if (map.getZoom() < 6) {
+        markersClusterGroup.clearLayers();
+        plottedMarkersCache = [];
+        return; 
+    }
+    
+    if (window.currentScanController) {
+        window.currentScanController.abort();
+    }
+    
     window.currentScanController = new AbortController();
     const signal = window.currentScanController.signal;
 
