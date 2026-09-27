@@ -79,63 +79,81 @@ def scan_bounds(
     data: Dict[str, Any] = Depends(get_disaster_data)
 ):
     active_season = season if season else get_current_season()
-    grid_threats_map = {}
-
+    
+    valid_features = []
     for feature in data.get("features", []):
         geom = feature.get("geometry", {})
-        props = feature.get("properties", {})
-        
         if geom.get("type") == "Point":
-            coords = geom.get("coordinates", [0, 0])
-            if not coords or len(coords) < 2:
-                continue
-            lon, lat = coords[0], coords[1]
+            coords = geom.get("coordinates", [])
+            if len(coords) >= 2:
+                lon, lat = coords[0], coords[1]
+                if s <= lat <= n and w <= lon <= e:
+                    valid_features.append((lat, lon, feature))
+                    
+    if not valid_features:
+        return {"results": []}
+
+    lat_span = n - s
+    if lat_span > 10:
+        round_decimals = 0  
+    elif lat_span > 4:
+        round_decimals = 1  
+    else:
+        round_decimals = 2  
+
+    unique_cells = {}
+    for lat, lon, feature in valid_features:
+        cell_key = f"{round(lat, round_decimals)}-{round(lon, round_decimals)}"
+        if cell_key not in unique_cells:
+            unique_cells[cell_key] = (lat, lon, feature)
             
-            if s <= lat <= n and w <= lon <= e:
-                grid_lat = round(lat, 1)
-                grid_lon = round(lon, 1)
-                
-                locality = props.get("locality", "Unknown")
-                region_name = props.get("region", "Unknown")
-                country_name = props.get("country", "Unknown")
-                
+        if len(unique_cells) >= 25:
+            break
+
+    grid_threats_map = {}
+    for lat, lon, feature in unique_cells.values():
+        props = feature.get("properties", {})
+        region_name = props.get("region", "Unknown")
+        locality = props.get("locality", "Unknown")
+        country_name = props.get("country", "Unknown")
+        
+        try:
+            pred_result = predictor.predict(region=region_name, season=active_season, lat=lat, lon=lon)
+        except Exception as err:
+            print(f"Prediction warning for {region_name}: {err}")
+            continue
+            
+        if pred_result and "predictions" in pred_result:
+            for p in pred_result["predictions"]:
+                raw_prob = str(p.get("probability_percentage", "0")).replace("%", "")
                 try:
-                    pred_result = predictor.predict(region=region_name, season=active_season, lat=lat, lon=lon)
-                except Exception as err:
-                    print(f"Prediction warning for {region_name}: {err}")
-                    continue
-                
-                if pred_result and "predictions" in pred_result:
-                    for p in pred_result["predictions"]:
-                        raw_prob = str(p.get("probability_percentage", "0")).replace("%", "")
-                        try:
-                            prob_val = float(raw_prob)
-                        except ValueError:
-                            prob_val = 0.0
+                    prob_val = float(raw_prob)
+                except ValueError:
+                    prob_val = 0.0
 
-                        if prob_val >= 1.0:
-                            disaster_type = p.get("disaster_type", "Unknown")
-                            risk_rating = p.get("risk_rating", "Low")
-                            
-                            weight = 3 if risk_rating == "High" else 2 if risk_rating == "Medium" else 1
+                if prob_val >= 1.0:
+                    disaster_type = p.get("disaster_type", "Unknown")
+                    risk_rating = p.get("risk_rating", "Low")
+                    
+                    weight = 3 if risk_rating == "High" else 2 if risk_rating == "Medium" else 1
+                    
+                    unique_cell_key = f"{round(lat, 1)}-{round(lon, 1)}-{disaster_type}"
 
-                            unique_cell_key = f"{grid_lat}-{grid_lon}-{disaster_type}"
+                    if unique_cell_key in grid_threats_map:
+                        if weight <= grid_threats_map[unique_cell_key]["weight"]:
+                            continue
 
-                            if unique_cell_key in grid_threats_map:
-                                if weight <= grid_threats_map[unique_cell_key]["weight"]:
-                                    continue
-
-                            grid_threats_map[unique_cell_key] = {
-                                "weight": weight,
-                                "result": {
-                                    "lat": lat,
-                                    "lon": lon,
-                                    "region": region_name,
-                                    "locality": locality,
-                                    "country": country_name,
-                                    "threat": p
-                                }
-                            }
+                    grid_threats_map[unique_cell_key] = {
+                        "weight": weight,
+                        "result": {
+                            "lat": lat,
+                            "lon": lon,
+                            "region": region_name,
+                            "locality": locality,
+                            "country": country_name,
+                            "threat": p
+                        }
+                    }
 
     results = [item["result"] for item in grid_threats_map.values()]
     return {"results": results}
