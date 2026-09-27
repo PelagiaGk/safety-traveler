@@ -1,11 +1,11 @@
 # 🌍 Safety Traveler - Data-driven safety predictions based on past documentations
 
 
-Safety Traveler uses data to make predictions as a safety measure. *It is not a forecaster*. 
+Safety Traveler uses data to make safety predictions. *It is not a forecaster*. 
 
-This 24/7 web application provides real-time geospatial risk assessments based on the historical recurrence of terrestrial disasters (Wildfires, Floods, Earthquakes, Storms, Heatwaves, and Droughts). By combining live map interactions with a balanced Random Forest logic, it evaluates the probabilistic danger of a region based strictly on localized meteorological history.
+This 24/7 web application provides real-time geospatial risk assessments based on the historical recurrence of terrestrial disasters (Wildfires, Floods, Earthquakes, Storms, Heatwaves, and Droughts). By combining live map interactions with balanced Random Forest logic, it evaluates a region's probabilistic risk based strictly on localized meteorological history.
 
-<img width="1919" height="910" alt="image" src="https://github.com/user-attachments/assets/4d786991-b4bc-4ee4-8880-773bd6b411f0" />
+<img width="1120" height="640" alt="image" src="https://github.com/user-attachments/assets/5b96884e-91be-4856-8ea6-07f1eb095cc1" />
 ---
 
 ## 🚀 Key Features
@@ -88,7 +88,7 @@ uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
 Navigate to http://localhost:8000 in your browser.
 
 ## 🛑 Contribution Guidelines
-Community contributions, particularly in expanding our dataset to fix class imbalances (e.g., sourcing historical drought records) are highly welcomed. However, please adhere to these strict machine learning constraints:
+Community contributions, particularly in expanding our dataset to fix class imbalances (e.g., sourcing historical drought records), are highly welcomed. However, please adhere to these strict machine learning constraints:
 
 1. Generalization > Memorization: Do not alter the Random Forest parameters to chase a 99% accuracy score.
 2. Strict Bounding: The model must remain bounded to min_samples_leaf=15. Lowering this value forces the trees to overfit to exact terrestrial coordinates and artificially suppresses secondary threats.
