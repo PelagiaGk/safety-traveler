@@ -27,13 +27,13 @@ document.addEventListener("DOMContentLoaded", () => {
     map = L.map('map', {
         maxBounds: worldBounds,
         maxBoundsViscosity: 1.0,
-        minZoom: 3
+        minZoom: 6
     }).setView([38.0, 24.0], 6);
 
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
         attribution: 'Tiles &copy; Esri',
         maxZoom: 19,
-        minZoom: 3,
+        minZoom: 6,
         noWrap: true,
         bounds: worldBounds
     }).addTo(map);
