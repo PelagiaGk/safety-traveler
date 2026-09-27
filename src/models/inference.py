@@ -70,23 +70,31 @@ class DisasterPredictor:
             active_lon = lon if lon is not None else 0.0
 
             season_encoded = le_season.transform([active_season])[0] if active_season in le_season.classes_ else 0
-            classes = le_disaster.inverse_transform(self.model.classes_)
+            classes = list(le_disaster.inverse_transform(self.model.classes_))
 
-            results = []
+            batch_rows = []
+            base_freqs = []
             for disaster_type in classes:
-                base_freq = self.freq_lookup.get((region, disaster_type), 0.05)
-
-                x_input = pd.DataFrame([{
+                freq = self.freq_lookup.get((region, disaster_type), 0.05)
+                base_freqs.append(freq)
+                batch_rows.append({
                     "season_encoded": season_encoded,
                     "month": active_month,
                     "latitude": active_lat,
                     "longitude": active_lon,
-                    "historical_freq": base_freq
-                }])
+                    "historical_freq": freq
+                })
 
-                prob = self.model.predict_proba(x_input)[0][le_disaster.transform([disaster_type])[0]]
+            x_batch = pd.DataFrame(batch_rows)
+
+            all_probs = self.model.predict_proba(x_batch)
+
+            results = []
+            for i, disaster_type in enumerate(classes):
+                target_idx = le_disaster.transform([disaster_type])[0]
+                prob = all_probs[i][target_idx]
                 prob_pct = round(prob * 100, 1)
-                
+
                 if prob >= (self.med_threshold * 0.6):
                     if prob >= self.high_threshold:
                         risk_tier = "High"
@@ -95,7 +103,7 @@ class DisasterPredictor:
                     else:
                         risk_tier = "Low"
 
-                    freq_percentage = round(base_freq * 100, 1)
+                    freq_percentage = round(base_freqs[i] * 100, 1)
                     primary_reason = (
                         f"Evaluated across {self.training_years_span} years of historical data "
                         f"with a regional baseline frequency of {freq_percentage}% for {disaster_type} during {active_season}."
@@ -114,18 +122,17 @@ class DisasterPredictor:
                     })
 
             results.sort(key=lambda x: float(x["probability_percentage"].replace("%", "")), reverse=True)
-            
+
             return {
                 "region": region,
-                "matched_region": region, 
+                "matched_region": region,
                 "season": active_season,
                 "predictions": results
             }
         except Exception as e:
-            print(f"Inference prediction error for region {region}: {e}")
-            return {
-                "region": region,
-                "matched_region": region,
-                "season": season,
-                "predictions": []
+            print(f"Inference error for {region}: {e}")
+            return {"region": region, 
+                    "matched_region": region, 
+                    "season": season, 
+                    "predictions": []
             }
