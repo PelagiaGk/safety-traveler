@@ -38,18 +38,22 @@ def train_model():
     region_disaster_counts = df.groupby(["region", "disaster_type"]).size().reset_index(name="disaster_count")
     region_total_counts = df.groupby("region").size().reset_index(name="total_count")
     region_freqs = pd.merge(region_disaster_counts, region_total_counts, on="region")
-    region_freqs["historical_freq"] = region_freqs["disaster_count"] / region_freqs["total_count"]
+
+    SMOOTHING_FACTOR = 5
+    region_freqs["historical_freq"] = region_freqs["disaster_count"] / (region_freqs["total_count"] + SMOOTHING_FACTOR)
+
+    region_freqs["historical_freq"] = region_freqs["historical_freq"].clip(upper=0.85)
 
     historical_freq_lookup = dict(zip(
-        zip(region_freqs["region"], region_freqs["disaster_type"]), 
+        zip(region_freqs["region"], region_freqs["disaster_type"]),
         region_freqs["historical_freq"]
     ))
 
     df["historical_freq"] = df.apply(
-        lambda row: historical_freq_lookup.get((row["region"], row["disaster_type"]), 0.05), 
+        lambda row: historical_freq_lookup.get((row["region"], row["disaster_type"]), 0.05),
         axis=1
     )
-
+    
     feature_cols = ["season_encoded", "month", "latitude", "longitude", "historical_freq"]
     X = df[feature_cols]
     y = df["target"]
