@@ -47,7 +47,7 @@ def get_nearest_region(lat: float, lon: float, features: List[Dict], max_dist: f
         geom = feature.get("geometry", {})
         if geom.get("type") == "Point":
             coords = geom.get("coordinates", [0, 0])
-            f_lon, f_lat = coords[0], coords[1]
+            f_lon, f_lat = float(coords[0]), float(coords[1])
             dist = math.hypot(f_lat - lat, f_lon - lon)
             if dist < min_dist and dist <= max_dist:
                 min_dist = dist
@@ -86,7 +86,7 @@ def scan_bounds(
         if geom.get("type") == "Point":
             coords = geom.get("coordinates", [])
             if len(coords) >= 2:
-                lon, lat = coords[0], coords[1]
+                lon, lat = float(coords[0]), float(coords[1])
                 if s <= lat <= n and w <= lon <= e:
                     valid_features.append((lat, lon, feature))
                     
@@ -103,7 +103,7 @@ def scan_bounds(
 
     unique_cells = {}
     for lat, lon, feature in valid_features:
-        cell_key = f"{round(lat, round_decimals)}-{round(lon, round_decimals)}"
+        cell_key = f"{round(float(lat), round_decimals)}-{round(float(lon), round_decimals)}"
         if cell_key not in unique_cells:
             unique_cells[cell_key] = (lat, lon, feature)
             
@@ -118,7 +118,13 @@ def scan_bounds(
         country_name = props.get("country", "Unknown")
         
         try:
-            pred_result = predictor.predict(region=region_name, season=active_season, lat=lat, lon=lon)
+            pred_result = predictor.predict(
+                region=region_name, 
+                season=active_season, 
+                lat=float(lat) if lat is not None else 0.0, 
+                lon=float(lon) if lon is not None else 0.0
+            )
+            
         except Exception as err:
             print(f"Prediction warning for {region_name}: {err}")
             continue
@@ -137,7 +143,7 @@ def scan_bounds(
                     
                     weight = 3 if risk_rating == "High" else 2 if risk_rating == "Medium" else 1
                     
-                    unique_cell_key = f"{round(lat, 1)}-{round(lon, 1)}-{disaster_type}"
+                    unique_cell_key = f"{round(float(lat if lat is not None else 0.0), 1)}-{round(float(lon if lon is not None else 0.0), 1)}-{disaster_type}"
 
                     if unique_cell_key in grid_threats_map:
                         if weight <= grid_threats_map[unique_cell_key]["weight"]:
@@ -146,8 +152,8 @@ def scan_bounds(
                     grid_threats_map[unique_cell_key] = {
                         "weight": weight,
                         "result": {
-                            "lat": lat,
-                            "lon": lon,
+                            "lat": float(lat) if lat is not None else 0.0,
+                            "lon": float(lon) if lon is not None else 0.0,
                             "region": region_name,
                             "locality": locality,
                             "country": country_name,
@@ -189,7 +195,12 @@ def predict_risk(
             coords = geom.get("coordinates", [0, 0])
             resolved_lon, resolved_lat = coords[0], coords[1]
 
-    result = predictor.predict(region=target_region, season=active_season, lat=resolved_lat, lon=resolved_lon)
+    result = predictor.predict(
+        region=target_region, 
+        season=active_season, 
+        lat=float(resolved_lat) if resolved_lat is not None else 0.0, 
+        lon=float(resolved_lon) if resolved_lon is not None else 0.0
+    )
     
     if isinstance(result, dict):
         result["resolved_lat"] = resolved_lat
